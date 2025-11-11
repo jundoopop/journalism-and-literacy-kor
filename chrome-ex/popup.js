@@ -3,13 +3,28 @@ const activateBtn = document.getElementById('activateBtn');
 const deactivateBtn = document.getElementById('deactivateBtn');
 const statusDiv = document.getElementById('status');
 
+// 지원하는 언론사 도메인 목록
+const SUPPORTED_DOMAINS = [
+  'chosun.com',
+  'hani.co.kr',
+  'hankookilbo.com',
+  'joongang.co.kr'
+];
+
+/**
+ * 지원하는 사이트인지 확인
+ */
+function isSupportedSite(url) {
+  return SUPPORTED_DOMAINS.some(domain => url.includes(domain));
+}
+
 /**
  * 상태 메시지 표시
  */
 function showStatus(message, type = 'success') {
   statusDiv.textContent = message;
   statusDiv.className = `status ${type} show`;
-  
+
   setTimeout(() => {
     statusDiv.classList.remove('show');
   }, 3000);
@@ -22,15 +37,15 @@ activateBtn.addEventListener('click', async () => {
   try {
     // 현재 활성 탭 가져오기
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
+
     if (!tab) {
       showStatus('활성 탭을 찾을 수 없습니다', 'error');
       return;
     }
-    
-    // 조선일보 사이트인지 확인
-    if (!tab.url.includes('chosun.com')) {
-      showStatus('조선일보 사이트에서만 작동합니다', 'error');
+
+    // 지원하는 사이트인지 확인
+    if (!isSupportedSite(tab.url)) {
+      showStatus('지원하지 않는 사이트입니다', 'error');
       return;
     }
     
