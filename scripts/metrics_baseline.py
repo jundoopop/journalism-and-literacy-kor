@@ -1,4 +1,5 @@
-import argparse, re
+import argparse
+import re
 import orjson
 from collections import Counter
 
@@ -17,13 +18,15 @@ def tokens(text: str):
 
 def ttr(text: str):
     ts = tokens(text)
-    if not ts: return 0.0
+    if not ts:
+        return 0.0
     return len(set(ts)) / len(ts)
 
 
 def modal_ratio(text: str):
     ts = tokens(text)
-    if not ts: return 0.0
+    if not ts:
+        return 0.0
     cnt = 0
     for w in ts:
         if any(m in w for m in MODALS_KO):
@@ -33,7 +36,8 @@ def modal_ratio(text: str):
 
 def avg_sent_len(text: str):
     ss = sentences(text)
-    if not ss: return 0.0
+    if not ss:
+        return 0.0
     return sum(len(tokens(s)) for s in ss) / len(ss)
 
 

@@ -1,4 +1,7 @@
-import argparse, json, time, re
+import argparse
+import json
+import time
+import re
 from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
@@ -48,7 +51,8 @@ def html_to_text(content_html: str):
     for cls in ["ad", "banner", "recommend", "related"]:
         for d in soup.find_all(class_=re.compile(cls, re.I)):
             d.decompose()
-    text = "\n".join(t.strip() for t in soup.get_text("\n").splitlines() if t.strip())
+    text = "\n".join(t.strip()
+                     for t in soup.get_text("\n").splitlines() if t.strip())
     return text
 
 
@@ -69,12 +73,14 @@ def main(inp: str, out: str):
     with open(inp, "r", encoding="utf-8") as f:
         for line in f:
             url = line.strip()
-            if not url or url.startswith("#"): continue
+            if not url or url.startswith("#"):
+                continue
             try:
                 title, content_html = extract_main_html(url)
                 body_text = html_to_text(content_html)
                 domain = urlparse(url).netloc
-                date_guess = detect_date(content_html) or detect_date(body_text)
+                date_guess = detect_date(
+                    content_html) or detect_date(body_text)
                 rec = {
                     "source": domain,
                     "url": url,

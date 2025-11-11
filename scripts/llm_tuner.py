@@ -1,4 +1,7 @@
-import argparse, time, json, random
+import argparse
+import time
+import json
+import random
 from pathlib import Path
 import orjson
 import pandas as pd
@@ -14,16 +17,16 @@ client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
 
 PROMPT_PATH = Path("prompts/base_prompt_ko.txt")
 SCHEMA = {
-  "type": "object",
-  "properties": {
-    "claims": {"type": "array"},
-    "fallacies": {"type": "array"},
-    "quality_scores": {"type": "object"},
-    "headline_features": {"type": "object"},
-    "highlight_spans": {"type": "array"},
-    "study_tips": {"type": "array"}
-  },
-  "required": ["claims", "fallacies", "quality_scores", "highlight_spans", "study_tips"]
+    "type": "object",
+    "properties": {
+        "claims": {"type": "array"},
+        "fallacies": {"type": "array"},
+        "quality_scores": {"type": "object"},
+        "headline_features": {"type": "object"},
+        "highlight_spans": {"type": "array"},
+        "study_tips": {"type": "array"}
+    },
+    "required": ["claims", "fallacies", "quality_scores", "highlight_spans", "study_tips"]
 }
 
 
@@ -51,7 +54,8 @@ def main(inp: str, out: str, n: int):
         for line in f:
             try:
                 rec = orjson.loads(line)
-                if not rec.get("body_text"): continue
+                if not rec.get("body_text"):
+                    continue
                 rows.append(rec)
             except Exception:
                 continue
@@ -92,12 +96,14 @@ def main(inp: str, out: str, n: int):
                     err_msg = str(e)
                     time.sleep(1.2)
             with open(log_path, "a", encoding="utf-8") as lg:
-                lg.write(f"{rec.get('url')},{'ok' if ok else 'fail'},{attempt+1}\n")
+                lg.write(
+                    f"{rec.get('url')},{'ok' if ok else 'fail'},{attempt+1}\n")
             if not ok:
                 # 실패 샘플도 기록(디버그용)
                 fail_dump = Path("results/failed_samples.jsonl")
                 with open(fail_dump, "ab") as fd:
-                    fd.write(orjson.dumps({"url": rec.get("url"), "error": err_msg}) + b"\n")
+                    fd.write(orjson.dumps(
+                        {"url": rec.get("url"), "error": err_msg}) + b"\n")
 
 
 if __name__ == "__main__":
