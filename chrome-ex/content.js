@@ -1,97 +1,81 @@
 // ============================================
-// 하이라이트 대상 (나중에 LLM api 리턴값으로 교체)
+// Article Sentence Highlighter - Content Script
+// Automatically highlights literacy-enhancing sentences in articles
 // ============================================
-const for_highlight = [
-  "대통령",
-  "여당",
-  "달러",
-  "트럼프",
-  "관세",
-];
 
-// ============================================
-// 설정
-// ============================================
+// Constants
 const CONFIG = {
-  target_color: "#ffff00",
-  opacity: 0.5,
-  sentence_delimiters: /[.!?…]/
+  // Consensus-based color scheme
+  COLORS: {
+    high: { bg: "#00ff00", opacity: 0.6 },    // Green - all models agree
+    medium: { bg: "#ffff00", opacity: 0.5 },  // Yellow - 2 models
+    low: { bg: "#87ceeb", opacity: 0.4 }      // Sky blue - 1 model
+  },
+  HIGHLIGHT_PADDING: "2px 0",
+  AUTO_TRIGGER_DELAY: 300, // milliseconds
+  EXCLUDED_TAGS: ['script', 'style', 'noscript', 'mark'],
+  LOG_PREFIX: '[Highlighter]',
+  DATA_ATTRIBUTE: 'data-highlighter'
+};
+
+// State management
+const state = {
+  highlightTargets: [],      // Array of strings (legacy) or objects (consensus)
+  isConsensusMode: false,     // Whether using consensus data
+  isActivated: false,
+  isLoading: false,
+  highlightedNodes: []
 };
 
 // ============================================
-// 상태 변수
-// ============================================
-let isActivated = false;
-let highlightedNodes = [];
-
-// ============================================
-// 유틸리티 함수
+// Utility Functions
 // ============================================
 
 /**
- * 텍스트 정규화 (소문자 + 공백 정리)
+ * Log message with prefix
+ * @param {string} message - Message to log
+ * @param {string} level - Log level (log, warn, error)
  */
-function normalize(text) {
-  return text.toLowerCase().replace(/\s+/g, ' ').trim();
+function log(message, level = 'log') {
+  console[level](`${CONFIG.LOG_PREFIX} ${message}`);
 }
 
 /**
- * 텍스트를 문장으로 분리
+ * Normalize text (remove extra whitespace)
+ * @param {string} text - Text to normalize
+ * @returns {string} Normalized text
  */
-function splitIntoSentences(text) {
-  const sentences = [];
-  let currentSentence = '';
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    currentSentence += char;
-
-    // 문장 구분자를 만나면
-    if (CONFIG.sentence_delimiters.test(char)) {
-      // 다음 공백도 포함
-      while (i + 1 < text.length && /\s/.test(text[i + 1])) {
-        currentSentence += text[i + 1];
-        i++;
-      }
-
-      if (currentSentence.trim()) {
-        sentences.push(currentSentence);
-      }
-      currentSentence = '';
-    }
-  }
-
-  // 남은 문장
-  if (currentSentence.trim()) {
-    sentences.push(currentSentence);
-  }
-
-  return sentences;
-}
-
-/**
- * 문장이 하이라이트 대상인지 확인
- */
-function shouldHighlight(sentence) {
-  const normalizedSentence = normalize(sentence);
-
-  for (let keyword of for_highlight) {
-    const normalizedKeyword = normalize(keyword);
-
-    if (normalizedSentence.includes(normalizedKeyword)) {
-      return true;
-    }
-  }
-
-  return false;
+function normalizeText(text) {
+  return text.replace(/\s+/g, ' ').trim();
 }
 
 // ============================================
-// DOM 수집
+// DOM Collection
 // ============================================
 
 /**
- * 텍스트 노드만 수집
+ * Check if node should be excluded from highlighting
+ * @param {Node} node - Text node to check
+ * @returns {boolean} True if node should be excluded
+ */
+function shouldExcludeNode(node) {
+  if (!node.textContent.trim()) {
+    return true;
+  }
+
+  const parent = node.parentElement;
+  if (!parent) {
+    return true;
+  }
+
+  const tagName = parent.tagName.toLowerCase();
+  return CONFIG.EXCLUDED_TAGS.includes(tagName);
+}
+
+/**
+ * Collect all text nodes in the document
+ * @param {Element} root - Root element to search from
+ * @returns {Array<Node>} Array of text nodes
  */
 function collectTextNodes(root) {
   const textNodes = [];
@@ -99,22 +83,10 @@ function collectTextNodes(root) {
     root,
     NodeFilter.SHOW_TEXT,
     {
-      acceptNode: function (node) {
-        // 빈 텍스트 제외
-        if (!node.textContent.trim()) {
-          return NodeFilter.FILTER_REJECT;
-        }
-
-        // script, style, mark 태그 내부 제외
-        const parent = node.parentElement;
-        if (!parent) return NodeFilter.FILTER_REJECT;
-
-        const tagName = parent.tagName.toLowerCase();
-        if (['script', 'style', 'noscript', 'mark'].includes(tagName)) {
-          return NodeFilter.FILTER_REJECT;
-        }
-
-        return NodeFilter.FILTER_ACCEPT;
+      acceptNode(node) {
+        return shouldExcludeNode(node)
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_ACCEPT;
       }
     }
   );
@@ -128,106 +100,207 @@ function collectTextNodes(root) {
 }
 
 // ============================================
-// 하이라이트 적용
+// Highlight Matching
 // ============================================
 
 /**
- * 텍스트 노드에 하이라이트 적용
+ * Find matching targets in text
+ * Supports both legacy (string array) and consensus (object array) modes
+ * @param {string} text - Text to search in
+ * @param {string} normalizedText - Normalized version of text
+ * @returns {Array} Array of matches with metadata
  */
-function highlightTextNode(textNode) {
-  const text = textNode.textContent;
-  const sentences = splitIntoSentences(text);
+function findMatches(text, normalizedText) {
+  const matchingTargets = [];
 
-  // 하이라이트 대상이 없으면 종료
-  const hasTarget = sentences.some(s => shouldHighlight(s));
-  if (!hasTarget) {
-    return;
+  for (const target of state.highlightTargets) {
+    let sentenceText, metadata;
+
+    if (typeof target === 'string') {
+      // Legacy mode: simple string array
+      sentenceText = target;
+      metadata = { consensus_level: 'medium' }; // Default yellow
+    } else {
+      // Consensus mode: object with metadata
+      sentenceText = target.text;
+      metadata = {
+        consensus_level: target.consensus_level || 'medium',
+        consensus_score: target.consensus_score,
+        selected_by: target.selected_by || [],
+        reasons: target.reasons || {}
+      };
+    }
+
+    const normalizedTarget = normalizeText(sentenceText);
+    const index = normalizedText.indexOf(normalizedTarget);
+
+    if (index !== -1) {
+      matchingTargets.push({
+        target: sentenceText,
+        normalizedTarget,
+        startIndex: index,
+        endIndex: index + normalizedTarget.length,
+        metadata
+      });
+    }
   }
 
-  // 새로운 HTML 생성
+  // Sort by start index
+  matchingTargets.sort((a, b) => a.startIndex - b.startIndex);
+
+  // Find actual positions in original text
+  const matches = [];
+  for (const match of matchingTargets) {
+    const actualIndex = text.indexOf(match.target);
+    if (actualIndex !== -1) {
+      matches.push({
+        text: match.target,
+        startIndex: actualIndex,
+        endIndex: actualIndex + match.target.length,
+        metadata: match.metadata
+      });
+    }
+  }
+
+  return matches;
+}
+
+/**
+ * Create highlight mark element with consensus-based styling
+ * @param {string} text - Text to highlight
+ * @param {Object} metadata - Consensus metadata (consensus_level, selected_by, reasons)
+ * @returns {HTMLElement} Mark element
+ */
+function createHighlightMark(text, metadata) {
+  const mark = document.createElement('mark');
+
+  // Apply consensus-based color
+  const consensusLevel = metadata.consensus_level || 'medium';
+  const colors = CONFIG.COLORS[consensusLevel];
+
+  mark.style.backgroundColor = colors.bg;
+  mark.style.opacity = colors.opacity;
+  mark.style.padding = CONFIG.HIGHLIGHT_PADDING;
+  mark.style.cursor = 'help'; // Show help cursor on hover
+  mark.setAttribute(CONFIG.DATA_ATTRIBUTE, 'active');
+  mark.setAttribute('data-consensus-level', consensusLevel);
+
+  // Build tooltip text
+  let tooltipText = '';
+
+  if (metadata.consensus_score) {
+    tooltipText += `합의 점수: ${metadata.consensus_score}\n`;
+    tooltipText += `선택한 모델: ${metadata.selected_by.join(', ')}\n\n`;
+
+    // Add reasons from each model
+    if (metadata.reasons && Object.keys(metadata.reasons).length > 0) {
+      tooltipText += '선택 이유:\n';
+      for (const [provider, reason] of Object.entries(metadata.reasons)) {
+        tooltipText += `• ${provider}: ${reason}\n`;
+      }
+    }
+  } else {
+    // Legacy mode (single LLM)
+    tooltipText = '문해력 향상에 도움이 되는 문장';
+  }
+
+  mark.title = tooltipText.trim();
+  mark.textContent = text;
+
+  return mark;
+}
+
+/**
+ * Highlight matches in a text node
+ * @param {Node} textNode - Text node to process
+ * @param {Array} matches - Array of match objects with metadata
+ */
+function applyHighlightsToNode(textNode, matches) {
+  const text = textNode.textContent;
   const fragment = document.createDocumentFragment();
   let lastIndex = 0;
 
-  sentences.forEach(sentence => {
-    const index = text.indexOf(sentence, lastIndex);
-
-    if (index === -1) return;
-
-    // 문장 앞의 텍스트
-    if (index > lastIndex) {
-      const before = text.substring(lastIndex, index);
+  matches.forEach(match => {
+    // Add text before match
+    if (match.startIndex > lastIndex) {
+      const before = text.substring(lastIndex, match.startIndex);
       fragment.appendChild(document.createTextNode(before));
     }
 
-    // 문장 (하이라이트 여부에 따라)
-    if (shouldHighlight(sentence)) {
-      const mark = document.createElement('mark');
-      mark.style.backgroundColor = CONFIG.target_color;
-      mark.style.opacity = CONFIG.opacity;
-      mark.style.padding = '2px 0';
-      mark.setAttribute('data-highlighter', 'active');
-      mark.textContent = sentence;
-      fragment.appendChild(mark);
+    // Add highlighted text with metadata
+    const mark = createHighlightMark(match.text, match.metadata);
+    fragment.appendChild(mark);
+    state.highlightedNodes.push(mark);
 
-      // 제거용으로 저장
-      highlightedNodes.push(mark);
-    } else {
-      fragment.appendChild(document.createTextNode(sentence));
-    }
-
-    lastIndex = index + sentence.length;
+    lastIndex = match.endIndex;
   });
 
-  // 남은 텍스트
+  // Add remaining text
   if (lastIndex < text.length) {
     fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
   }
 
-  // 원본 교체
+  // Replace original node
   textNode.parentNode.replaceChild(fragment, textNode);
 }
 
+/**
+ * Highlight text node if it contains target sentences
+ * @param {Node} textNode - Text node to process
+ */
+function highlightTextNode(textNode) {
+  const text = textNode.textContent;
+  const normalizedText = normalizeText(text);
+
+  const matches = findMatches(text, normalizedText);
+
+  if (matches.length > 0) {
+    applyHighlightsToNode(textNode, matches);
+  }
+}
+
 // ============================================
-// 메인 로직
+// Main Highlighting Logic
 // ============================================
 
 /**
- * 전체 하이라이팅 실행
+ * Execute highlighting on all text nodes
  */
-function mainHighlight() {
-  if (isActivated) {
-    console.log('[하이라이터] 이미 활성화됨');
+function executeHighlighting() {
+  if (state.isActivated) {
+    log('Already activated');
     return;
   }
 
-  console.log('[하이라이터] 시작...');
-  console.log('[하이라이터] 대상 키워드:', for_highlight);
+  if (state.highlightTargets.length === 0) {
+    log('No highlight targets loaded', 'warn');
+    return;
+  }
 
+  log(`Starting highlighting with ${state.highlightTargets.length} targets`);
   const startTime = performance.now();
 
-  // 텍스트 노드 수집
+  // Collect text nodes
   const textNodes = collectTextNodes(document.body);
-  console.log(`[하이라이터] 텍스트 노드 수: ${textNodes.length}`);
+  log(`Found ${textNodes.length} text nodes`);
 
-  // 각 노드에 하이라이트 적용
-  textNodes.forEach(node => {
-    highlightTextNode(node);
-  });
+  // Apply highlights
+  textNodes.forEach(node => highlightTextNode(node));
 
-  const endTime = performance.now();
-  console.log(`[하이라이터] 완료! (${(endTime - startTime).toFixed(2)}ms)`);
-  console.log(`[하이라이터] 하이라이트된 문장: ${highlightedNodes.length}개`);
+  const duration = (performance.now() - startTime).toFixed(2);
+  log(`Highlighting complete! (${duration}ms)`);
+  log(`Highlighted ${state.highlightedNodes.length} sentences`);
 
-  isActivated = true;
+  state.isActivated = true;
 }
 
 /**
- * 하이라이트 제거
+ * Remove all highlights from the page
  */
-function removeHighlights() {
-  console.log('[하이라이터] 하이라이트 제거 중...');
+function removeAllHighlights() {
+  log('Removing highlights...');
 
-  highlightedNodes.forEach(mark => {
+  state.highlightedNodes.forEach(mark => {
     if (mark.parentNode) {
       const text = mark.textContent;
       const textNode = document.createTextNode(text);
@@ -235,28 +308,150 @@ function removeHighlights() {
     }
   });
 
-  highlightedNodes = [];
-  isActivated = false;
+  state.highlightedNodes = [];
+  state.isActivated = false;
 
-  console.log('[하이라이터] 제거 완료');
+  log('Highlights removed');
 }
 
 // ============================================
-// 메시지 리스너
+// API Communication
 // ============================================
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('[하이라이터] 메시지 수신:', message);
+/**
+ * Load highlight sentences from background script
+ * @returns {Promise<Object>} Response from background script
+ */
+async function loadHighlightSentences() {
+  const response = await chrome.runtime.sendMessage({
+    action: 'getHighlightSentences',
+    url: window.location.href
+  });
 
-  if (message.action === 'activate') {
-    mainHighlight();
-    sendResponse({ success: true, count: highlightedNodes.length });
-  } else if (message.action === 'deactivate') {
-    removeHighlights();
-    sendResponse({ success: true });
+  if (!response) {
+    throw new Error('No response from background script');
   }
 
-  return true;
+  return response;
+}
+
+/**
+ * Auto-load highlight sentences and execute highlighting
+ */
+async function autoLoadAndHighlight() {
+  if (state.isActivated || state.isLoading) {
+    log('Already activated or loading');
+    return;
+  }
+
+  state.isLoading = true;
+  log('Auto-loading started...');
+
+  try {
+    const response = await loadHighlightSentences();
+
+    if (response.success) {
+      log(`Sentences loaded: ${response.count} items`);
+      state.highlightTargets = response.sentences;
+      executeHighlighting();
+    } else {
+      log(`Loading failed: ${response.error}`, 'error');
+    }
+
+  } catch (error) {
+    log(`Error: ${error.message}`, 'error');
+
+  } finally {
+    state.isLoading = false;
+  }
+}
+
+// ============================================
+// Message Handlers
+// ============================================
+
+/**
+ * Handle 'activate' message
+ * @param {Function} sendResponse - Response callback
+ */
+async function handleActivate(sendResponse) {
+  if (state.highlightTargets.length === 0) {
+    // Load first if not loaded yet
+    await autoLoadAndHighlight();
+  } else {
+    executeHighlighting();
+  }
+
+  sendResponse({
+    success: true,
+    count: state.highlightedNodes.length
+  });
+}
+
+/**
+ * Handle 'deactivate' message
+ * @param {Function} sendResponse - Response callback
+ */
+function handleDeactivate(sendResponse) {
+  removeAllHighlights();
+  sendResponse({ success: true });
+}
+
+/**
+ * Handle 'reload' message (force re-analysis)
+ * @param {Function} sendResponse - Response callback
+ */
+async function handleReload(sendResponse) {
+  removeAllHighlights();
+  state.highlightTargets = [];
+  await autoLoadAndHighlight();
+
+  sendResponse({
+    success: true,
+    count: state.highlightedNodes.length
+  });
+}
+
+// ============================================
+// Message Listener
+// ============================================
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  log(`Message received: ${message.action}`);
+
+  const { action } = message;
+
+  switch (action) {
+    case 'activate':
+      handleActivate(sendResponse);
+      return true; // Keep channel open for async response
+
+    case 'deactivate':
+      handleDeactivate(sendResponse);
+      return false;
+
+    case 'reload':
+      handleReload(sendResponse);
+      return true; // Keep channel open for async response
+
+    default:
+      log(`Unknown action: ${action}`, 'warn');
+      sendResponse({
+        success: false,
+        error: `Unknown action: ${action}`
+      });
+      return false;
+  }
 });
 
-console.log('[하이라이터] Content script 로드 완료 (대기 중)');
+// ============================================
+// Initialization
+// ============================================
+
+log('Content script loaded');
+
+// Auto-trigger after delay
+setTimeout(() => {
+  log('Auto-trigger timer started');
+  autoLoadAndHighlight();
+}, CONFIG.AUTO_TRIGGER_DELAY);

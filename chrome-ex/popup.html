@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -72,8 +73,63 @@
       background: rgba(255, 255, 255, 0.3);
     }
 
-    .status {
+    #reloadBtn {
+      background: rgba(255, 255, 255, 0.15);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      margin-top: 10px;
+      font-size: 13px;
+      padding: 10px;
+    }
+
+    #reloadBtn:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    #settingsBtn {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      margin-top: 10px;
+      font-size: 13px;
+      padding: 10px;
+    }
+
+    #settingsBtn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .provider-info {
+      margin-top: 12px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      font-size: 11px;
+      text-align: center;
+      opacity: 0.9;
+    }
+
+    .server-status {
       margin-top: 16px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .server-status.connected {
+      background: rgba(76, 175, 80, 0.2);
+      border: 1px solid rgba(76, 175, 80, 0.3);
+    }
+
+    .server-status.disconnected {
+      background: rgba(244, 67, 54, 0.2);
+      border: 1px solid rgba(244, 67, 54, 0.3);
+    }
+
+    .status {
+      margin-top: 12px;
       padding: 10px;
       background: rgba(255, 255, 255, 0.15);
       border-radius: 6px;
@@ -99,17 +155,24 @@
     }
   </style>
 </head>
+
 <body>
   <div class="container">
     <h1>🖍️ 문장 하이라이터</h1>
-    <p class="subtitle">조선일보 기사 전용</p>
-    
+    <p class="subtitle">AI 기반 문해력 향상</p>
+
+    <div id="serverStatus" class="server-status">서버 확인 중...</div>
+    <div id="providerInfo" class="provider-info">모드: 로딩 중...</div>
+
     <button id="activateBtn">Activate</button>
     <button id="deactivateBtn">Deactivate</button>
-    
+    <button id="reloadBtn">재분석</button>
+    <button id="settingsBtn">⚙️ 설정</button>
+
     <div id="status" class="status"></div>
   </div>
 
   <script src="popup.js"></script>
 </body>
+
 </html>

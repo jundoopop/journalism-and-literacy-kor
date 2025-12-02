@@ -1,39 +1,43 @@
 {
   "manifest_version": 3,
   "name": "Highright",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "기사에서 특정 문장을 하이라이트합니다. 조선일보, 한겨레, 한국일보, 중앙일보 지원",
-
   "permissions": [
     "activeTab",
-    "scripting"
+    "scripting",
+    "storage",
+    "nativeMessaging"
   ],
-
   "host_permissions": [
     "*://*.chosun.com/*",
     "*://*.hani.co.kr/*",
     "*://*.hankookilbo.com/*",
-    "*://*.joongang.co.kr/*"
+    "*://*.joongang.co.kr/*",
+    "*://*.khan.co.kr/*"
   ],
-
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": [
         "*://*.chosun.com/*",
         "*://*.hani.co.kr/*",
         "*://*.hankookilbo.com/*",
-        "*://*.joongang.co.kr/*"
+        "*://*.joongang.co.kr/*",
+        "*://*.khan.co.kr/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
-
   "action": {
     "default_popup": "popup.html",
     "default_title": "하이라이터 활성화"
   },
-
   "icons": {
     "16": "icon16.png",
     "48": "icon48.png",
