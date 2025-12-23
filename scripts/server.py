@@ -247,7 +247,7 @@ def analyze_consensus_endpoint():
     Request Body:
         {
             "url": "https://www.chosun.com/...",
-            "providers": ["gemini", "openai"]  # optional, defaults to ['gemini', 'openai']
+            "providers": ["gemini", "mistral"]  # optional, defaults to ['gemini', 'mistral']
         }
 
     Response (Success):
@@ -289,7 +289,7 @@ def analyze_consensus_endpoint():
             "error": error_msg
         }), 400
 
-    providers = data.get('providers', ['gemini', 'openai'])
+    providers = data.get('providers', ['gemini', 'mistral'])
 
     logger.info(f"\n[Consensus Request] URL: {url}, Providers: {providers}")
 

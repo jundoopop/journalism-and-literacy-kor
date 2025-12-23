@@ -1,23 +1,15 @@
 // ============================================
-// Background Service Worker (Native Messaging Version)
-// Communicates with Python native host via chrome.runtime
+// Background Service Worker (HTTP Version)
+// Communicates with Flask server via HTTP
 // ============================================
 
 // Constants
 const CONFIG = {
-  HOST_NAME: 'com.highright.analyzer',
+  SERVER_URL: 'http://localhost:5001',
   CACHE_DURATION: 60 * 60 * 1000, // 1 hour
   LOG_PREFIX: '[Background]',
-  RECONNECT_DELAY: 1000, // 1 second
-  MAX_RECONNECT_ATTEMPTS: 3
+  REQUEST_TIMEOUT: 60000 // 60 seconds
 };
-
-// Global state
-let nativePort = null;
-let isConnecting = false;
-let reconnectAttempts = 0;
-let pendingRequests = new Map(); // Track pending requests by ID
-let requestIdCounter = 0;
 
 // ============================================
 // Utility Functions
@@ -32,169 +24,8 @@ function log(message, level = 'log') {
   console[level](`${CONFIG.LOG_PREFIX} ${message}`);
 }
 
-/**
- * Generate unique request ID
- * @returns {number} Unique request ID
- */
-function generateRequestId() {
-  return ++requestIdCounter;
-}
-
 // ============================================
-// Native Messaging Connection
-// ============================================
-
-/**
- * Connect to native messaging host
- * @returns {Port|null} Native messaging port or null if failed
- */
-function connectToNativeHost() {
-  if (isConnecting) {
-    log('Already connecting to native host', 'warn');
-    return null;
-  }
-
-  if (nativePort) {
-    log('Already connected to native host');
-    return nativePort;
-  }
-
-  try {
-    isConnecting = true;
-    log(`Connecting to native host: ${CONFIG.HOST_NAME}`);
-
-    nativePort = chrome.runtime.connectNative(CONFIG.HOST_NAME);
-
-    nativePort.onMessage.addListener(handleNativeMessage);
-    nativePort.onDisconnect.addListener(handleNativeDisconnect);
-
-    log('✓ Connected to native host');
-    reconnectAttempts = 0;
-    isConnecting = false;
-
-    return nativePort;
-  } catch (error) {
-    log(`Failed to connect to native host: ${error.message}`, 'error');
-    nativePort = null;
-    isConnecting = false;
-    return null;
-  }
-}
-
-/**
- * Handle message from native host
- * @param {Object} message - Message from native host
- */
-function handleNativeMessage(message) {
-  log(`Received from native host: ${JSON.stringify(message).substring(0, 100)}...`);
-
-  // Find pending request by ID
-  const requestId = message.requestId;
-
-  if (requestId && pendingRequests.has(requestId)) {
-    const { resolve } = pendingRequests.get(requestId);
-    pendingRequests.delete(requestId);
-    resolve(message);
-  } else {
-    log(`Received message with unknown request ID: ${requestId}`, 'warn');
-  }
-}
-
-/**
- * Handle native host disconnect
- */
-function handleNativeDisconnect() {
-  const error = chrome.runtime.lastError;
-
-  if (error) {
-    log(`Native host disconnected: ${error.message}`, 'error');
-  } else {
-    log('Native host disconnected normally');
-  }
-
-  nativePort = null;
-  isConnecting = false;
-
-  // Reject all pending requests
-  for (const [requestId, { reject }] of pendingRequests.entries()) {
-    reject(new Error('Native host disconnected'));
-  }
-  pendingRequests.clear();
-
-  // Attempt to reconnect
-  if (reconnectAttempts < CONFIG.MAX_RECONNECT_ATTEMPTS) {
-    reconnectAttempts++;
-    log(`Attempting to reconnect (${reconnectAttempts}/${CONFIG.MAX_RECONNECT_ATTEMPTS})...`);
-
-    setTimeout(() => {
-      connectToNativeHost();
-    }, CONFIG.RECONNECT_DELAY);
-  } else {
-    log('Max reconnect attempts reached', 'error');
-  }
-}
-
-/**
- * Send message to native host
- * @param {Object} message - Message to send
- * @returns {Promise<Object>} Response from native host
- */
-function sendToNativeHost(message) {
-  return new Promise((resolve, reject) => {
-    // Ensure connection
-    if (!nativePort) {
-      connectToNativeHost();
-    }
-
-    if (!nativePort) {
-      reject(new Error('Failed to connect to native host. Please run the installer.'));
-      return;
-    }
-
-    // Add request ID
-    const requestId = generateRequestId();
-    message.requestId = requestId;
-
-    // Store pending request
-    pendingRequests.set(requestId, { resolve, reject });
-
-    // Set timeout
-    const timeout = setTimeout(() => {
-      if (pendingRequests.has(requestId)) {
-        pendingRequests.delete(requestId);
-        reject(new Error('Request timeout'));
-      }
-    }, 60000); // 60 second timeout
-
-    // Clear timeout on resolve/reject
-    const originalResolve = resolve;
-    const originalReject = reject;
-
-    pendingRequests.set(requestId, {
-      resolve: (value) => {
-        clearTimeout(timeout);
-        originalResolve(value);
-      },
-      reject: (error) => {
-        clearTimeout(timeout);
-        originalReject(error);
-      }
-    });
-
-    // Send message
-    try {
-      nativePort.postMessage(message);
-      log(`Sent to native host: ${message.action}`);
-    } catch (error) {
-      clearTimeout(timeout);
-      pendingRequests.delete(requestId);
-      reject(error);
-    }
-  });
-}
-
-// ============================================
-// Native Host API
+// HTTP API Communication
 // ============================================
 
 /**
@@ -212,7 +43,7 @@ async function getSettings() {
 }
 
 /**
- * Get highlight sentences from native host
+ * Fetch highlight sentences from HTTP server
  * Uses single or consensus mode based on settings
  * @param {string} url - Article URL
  * @returns {Promise<Object>} Response with sentences or error
@@ -225,30 +56,59 @@ async function fetchHighlightSentences(url) {
     const settings = await getSettings();
     log(`Using ${settings.mode} mode with providers: ${settings.providers.join(', ')}`);
 
-    let response;
+    let endpoint, body;
 
     if (settings.mode === 'consensus') {
       // Consensus mode: use multiple providers
-      response = await sendToNativeHost({
-        action: 'getConsensusHighlights',
+      endpoint = `${CONFIG.SERVER_URL}/analyze_consensus`;
+      body = {
         url,
         providers: settings.providers
-      });
+      };
     } else {
-      // Single mode: use original getHighlightSentences
-      response = await sendToNativeHost({
-        action: 'getHighlightSentences',
-        url
-      });
+      // Single mode: use original analyze endpoint
+      endpoint = `${CONFIG.SERVER_URL}/analyze`;
+      body = { url };
     }
 
-    if (response.success) {
-      log(`Analysis complete: ${response.count} sentences`);
-      return response;
-    } else {
-      throw new Error(response.error || 'Analysis failed');
+    log(`Calling ${endpoint}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
+
+    const result = await response.json();
+
+    if (result.success) {
+      log(`Analysis complete: ${result.count} sentences`);
+      return result;
+    } else {
+      throw new Error(result.error || 'Analysis failed');
+    }
+
   } catch (error) {
+    if (error.name === 'AbortError') {
+      log('Request timeout', 'error');
+      return {
+        success: false,
+        error: 'Request timeout - server took too long to respond'
+      };
+    }
+
     log(`Error: ${error.message}`, 'error');
     return {
       success: false,
@@ -258,16 +118,25 @@ async function fetchHighlightSentences(url) {
 }
 
 /**
- * Check native host health status
- * @returns {Promise<boolean>} True if host is healthy
+ * Check server health status
+ * @returns {Promise<boolean>} True if server is healthy
  */
-async function checkNativeHostHealth() {
+async function checkServerHealth() {
   try {
-    const response = await sendToNativeHost({
-      action: 'checkHealth'
+    const response = await fetch(`${CONFIG.SERVER_URL}/health`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
     });
 
-    return response.status === 'ok' && response.gemini_ready;
+    if (!response.ok) {
+      return false;
+    }
+
+    const result = await response.json();
+    return result.status === 'ok' && result.gemini_ready;
+
   } catch (error) {
     log(`Health check failed: ${error.message}`, 'warn');
     return false;
@@ -411,7 +280,7 @@ async function handleGetHighlightSentences(url, sendResponse) {
  * @param {Function} sendResponse - Response callback
  */
 async function handleCheckServer(sendResponse) {
-  const isHealthy = await checkNativeHostHealth();
+  const isHealthy = await checkServerHealth();
   sendResponse({ healthy: isHealthy });
 }
 
@@ -460,18 +329,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // Initialization
 // ============================================
 
-log('Service Worker loaded successfully');
+log('Service Worker loaded successfully (HTTP mode)');
 
-// Connect to native host on startup
-connectToNativeHost();
-
-// Check health after connection
+// Check server health after startup
 setTimeout(async () => {
-  const isHealthy = await checkNativeHostHealth();
+  const isHealthy = await checkServerHealth();
 
   if (isHealthy) {
-    log('✓ Native host is healthy and ready');
+    log('✓ Flask server is healthy and ready');
   } else {
-    log('✗ Native host not ready - Please run the installer', 'warn');
+    log('✗ Flask server not ready - Please start the server on port 5001', 'warn');
   }
 }, 1000);

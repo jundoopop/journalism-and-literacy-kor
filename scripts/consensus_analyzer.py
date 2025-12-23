@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Supported providers for consensus analysis
-SUPPORTED_PROVIDERS = ['gemini', 'openai', 'claude']
+SUPPORTED_PROVIDERS = ['gemini', 'openai', 'claude', 'mistral']
 
 # Analysis prompt (same as gemini_handler.py for consistency)
 ANALYSIS_PROMPT = """시스템 역할: 당신은 비판적 읽기 훈련 코치이자 언론 분석가입니다.
@@ -47,9 +47,9 @@ class ConsensusAnalyzer:
         Initialize consensus analyzer
 
         Args:
-            providers: List of provider names to use (default: ['gemini', 'openai'])
+            providers: List of provider names to use (default: ['gemini', 'mistral'])
         """
-        self.providers = providers or ['gemini', 'openai']
+        self.providers = providers or ['gemini', 'mistral']
         self.llm_instances = {}
 
         logger.info(f"Initializing ConsensusAnalyzer with providers: {self.providers}")
@@ -304,8 +304,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Multi-LLM 합의 분석 테스트")
     parser.add_argument("--text", type=str, help="분석할 기사 텍스트")
     parser.add_argument("--file", type=str, help="분석할 기사 파일 경로")
-    parser.add_argument("--providers", nargs='+', default=['gemini', 'openai'],
-                        help="사용할 LLM 제공자 목록")
+    parser.add_argument("--providers", nargs='+', default=['gemini', 'mistral'],
+                        help="사용할 LLM 제공자 목록 (gemini, openai, claude, mistral)")
 
     args = parser.parse_args()
 

@@ -6,15 +6,15 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "storage",
-    "nativeMessaging"
+    "storage"
   ],
   "host_permissions": [
     "*://*.chosun.com/*",
     "*://*.hani.co.kr/*",
     "*://*.hankookilbo.com/*",
     "*://*.joongang.co.kr/*",
-    "*://*.khan.co.kr/*"
+    "*://*.khan.co.kr/*",
+    "http://localhost:5001/*"
   ],
   "background": {
     "service_worker": "background.js"
