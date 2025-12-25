@@ -1,0 +1,36 @@
+# Prompt experimentation configuration
+#
+# This file defines A/B tests for different prompt variants.
+# Each experiment can route traffic to different prompt versions
+# to test which performs better.
+
+experiments:
+  # Enhanced article analysis prompt experiment
+  - name: enhanced_article_analysis
+    description: "Test enhanced prompt with more detailed selection criteria"
+    active: false  # Set to true to activate experiment
+    traffic_percentage: 50  # 50% of traffic will participate
+    control_variant: v1  # Default variant when experiment is inactive
+    variants:
+      - name: v1  # Original prompt
+        weight: 50  # 50% of experiment traffic
+      - name: v2  # Enhanced prompt with detailed criteria
+        weight: 50  # 50% of experiment traffic
+
+  # Future experiment example
+  - name: multilingual_prompt
+    description: "Test multilingual prompts for better cross-language support"
+    active: false
+    traffic_percentage: 25
+    control_variant: v1
+    variants:
+      - name: v1
+        weight: 70
+      - name: v3_multilingual
+        weight: 30
+
+# Notes:
+# - Set active: true to enable an experiment
+# - traffic_percentage controls what % of requests participate
+# - Variants with higher weight are selected more often
+# - Use control_variant to specify fallback when experiment is inactive

@@ -7,9 +7,9 @@
 const CONFIG = {
   // Consensus-based color scheme
   COLORS: {
-    high: { bg: "#00ff00", opacity: 0.6 },    // Green - all models agree
-    medium: { bg: "#ffff00", opacity: 0.5 },  // Yellow - 2 models
-    low: { bg: "#87ceeb", opacity: 0.4 }      // Sky blue - 1 model
+    high: { bg: "#00ff00", opacity: 0.6, text: "#111" },    // Green - all models agree
+    medium: { bg: "#ffff00", opacity: 0.5, text: "#111" },  // Yellow - 2 models
+    low: { bg: "#87ceeb", opacity: 0.4, text: "#111" }      // Sky blue - 1 model
   },
   HIGHLIGHT_PADDING: "2px 0",
   AUTO_TRIGGER_DELAY: 300, // milliseconds
@@ -26,6 +26,201 @@ const state = {
   isLoading: false,
   highlightedNodes: []
 };
+
+// ============================================
+// Custom Tooltip Manager
+// ============================================
+
+/**
+ * Custom Tooltip Manager
+ * Single-instance tooltip for all highlights
+ */
+class TooltipManager {
+  constructor() {
+    this.tooltipElement = null;
+    this.currentTarget = null;
+    this.hideTimeout = null;
+  }
+
+  createTooltipElement() {
+    const tooltip = document.createElement('div');
+    tooltip.id = 'highlighter-custom-tooltip';
+
+    // Inline styles to avoid page CSS conflicts
+    tooltip.style.cssText = `
+      position: absolute;
+      z-index: 999999;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      padding: 12px 16px;
+      max-width: 350px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #333;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      border: 2px solid #667eea;
+    `;
+
+    document.body.appendChild(tooltip);
+    this.tooltipElement = tooltip;
+  }
+
+  show(targetElement, metadata) {
+    if (!this.tooltipElement) this.createTooltipElement();
+
+    // Cancel pending hide
+    if (this.hideTimeout) {
+      clearTimeout(this.hideTimeout);
+      this.hideTimeout = null;
+    }
+
+    const content = this.buildTooltipContent(metadata);
+    this.tooltipElement.innerHTML = content;
+    this.positionTooltip(targetElement);
+    this.tooltipElement.style.opacity = '1';
+    this.currentTarget = targetElement;
+  }
+
+  hide() {
+    // Delay hide to prevent flickering
+    this.hideTimeout = setTimeout(() => {
+      if (this.tooltipElement) {
+        this.tooltipElement.style.opacity = '0';
+      }
+      this.currentTarget = null;
+    }, 100);
+  }
+
+  buildTooltipContent(metadata) {
+    const levelColors = {
+      high: '#4CAF50',
+      medium: '#FFC107',
+      low: '#2196F3'
+    };
+
+    const levelLabels = {
+      high: '높은 합의',
+      medium: '중간 합의',
+      low: '낮은 합의'
+    };
+
+    const providerIcons = {
+      gemini: '🔷',
+      openai: '🟢',
+      claude: '🟣',
+      mistral: '🔶'
+    };
+
+    const consensusLevel = metadata.consensus_level || 'medium';
+    const color = levelColors[consensusLevel];
+    const label = levelLabels[consensusLevel];
+
+    let html = '';
+
+    if (metadata.consensus_score) {
+      // Consensus mode: Show full details
+      html += `
+        <div style="display: flex; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #eee;">
+          <div style="background: ${color}; color: white; padding: 4px 10px; border-radius: 4px; font-weight: 600; font-size: 11px; margin-right: 8px;">
+            ${label}
+          </div>
+          <div style="font-size: 12px; color: #666;">
+            ${metadata.consensus_score}개 모델 선택
+          </div>
+        </div>
+      `;
+
+      // LLM providers
+      html += '<div style="margin-bottom: 10px;">';
+      html += '<div style="font-weight: 600; font-size: 11px; color: #888; margin-bottom: 6px;">선택한 LLM</div>';
+
+      metadata.selected_by.forEach(provider => {
+        const icon = providerIcons[provider] || '🤖';
+        html += `
+          <span style="display: inline-block; background: #f5f5f5; padding: 3px 8px; border-radius: 3px; margin-right: 4px; font-size: 11px;">
+            ${icon} ${provider}
+          </span>
+        `;
+      });
+      html += '</div>';
+
+      // Reasons
+      if (metadata.reasons && Object.keys(metadata.reasons).length > 0) {
+        html += '<div>';
+        html += '<div style="font-weight: 600; font-size: 11px; color: #888; margin-bottom: 6px;">선택 이유</div>';
+
+        for (const [provider, reason] of Object.entries(metadata.reasons)) {
+          const icon = providerIcons[provider] || '🤖';
+          html += `
+            <div style="margin-bottom: 8px; padding: 8px; background: #f9f9f9; border-radius: 4px; border-left: 3px solid ${color};">
+              <div style="font-weight: 600; font-size: 11px; color: #667eea; margin-bottom: 4px;">
+                ${icon} ${provider.toUpperCase()}
+              </div>
+              <div style="font-size: 12px; color: #555; line-height: 1.4;">
+                ${reason}
+              </div>
+            </div>
+          `;
+        }
+        html += '</div>';
+      }
+    } else {
+      // Single mode: Display actual reason from LLM
+      const provider = metadata.provider || 'gemini';
+      const providerIcon = providerIcons[provider] || '🤖';
+      const reason = metadata.reason || '문해력 향상에 도움이 되는 문장입니다.';
+
+      html += `
+        <div style="padding: 12px 0; border-top: 1px solid #e0e0e0;">
+          <div style="font-weight: 600; margin-bottom: 6px; color: #333; display: flex; align-items: center; gap: 6px;">
+            ${providerIcon} 선택 이유
+          </div>
+          <div style="font-size: 13px; color: #555; line-height: 1.5;">
+            ${reason}
+          </div>
+        </div>
+      `;
+    }
+
+    return html;
+  }
+
+  positionTooltip(targetElement) {
+    const rect = targetElement.getBoundingClientRect();
+    const tooltipRect = this.tooltipElement.getBoundingClientRect();
+
+    // Position below target by default
+    let top = rect.bottom + window.scrollY + 8;
+    let left = rect.left + window.scrollX;
+
+    // Adjust if off-screen
+    if (left + tooltipRect.width > window.innerWidth) {
+      left = window.innerWidth - tooltipRect.width - 10;
+    }
+
+    // Show above if no room below
+    if (rect.bottom + tooltipRect.height + 8 > window.innerHeight) {
+      top = rect.top + window.scrollY - tooltipRect.height - 8;
+    }
+
+    this.tooltipElement.style.top = `${top}px`;
+    this.tooltipElement.style.left = `${left}px`;
+  }
+
+  destroy() {
+    if (this.tooltipElement && this.tooltipElement.parentNode) {
+      this.tooltipElement.parentNode.removeChild(this.tooltipElement);
+    }
+    this.tooltipElement = null;
+  }
+}
+
+// Global tooltip instance
+const tooltipManager = new TooltipManager();
 
 // ============================================
 // Utility Functions
@@ -117,18 +312,29 @@ function findMatches(text, normalizedText) {
     let sentenceText, metadata;
 
     if (typeof target === 'string') {
-      // Legacy mode: simple string array
+      // Legacy fallback: simple string array (shouldn't happen anymore)
       sentenceText = target;
-      metadata = { consensus_level: 'medium' }; // Default yellow
+      metadata = { consensus_level: 'medium' };
     } else {
-      // Consensus mode: object with metadata
+      // Object with metadata (both single and consensus modes)
       sentenceText = target.text;
-      metadata = {
-        consensus_level: target.consensus_level || 'medium',
-        consensus_score: target.consensus_score,
-        selected_by: target.selected_by || [],
-        reasons: target.reasons || {}
-      };
+
+      if (target.consensus_score !== undefined) {
+        // Consensus mode: multiple providers
+        metadata = {
+          consensus_level: target.consensus_level || 'medium',
+          consensus_score: target.consensus_score,
+          selected_by: target.selected_by || [],
+          reasons: target.reasons || {}
+        };
+      } else {
+        // Single mode: one provider with single reason
+        metadata = {
+          consensus_level: target.consensus_level || 'medium',
+          reason: target.reason,
+          provider: 'gemini'  // Track which provider (for display)
+        };
+      }
     }
 
     const normalizedTarget = normalizeText(sentenceText);
@@ -174,37 +380,59 @@ function findMatches(text, normalizedText) {
 function createHighlightMark(text, metadata) {
   const mark = document.createElement('mark');
 
+  // Debug: Log metadata structure
+  console.log('[Tooltip Debug] Creating highlight with metadata:', {
+    consensus_level: metadata.consensus_level,
+    consensus_score: metadata.consensus_score,
+    selected_by: metadata.selected_by,
+    reasons: metadata.reasons ? Object.keys(metadata.reasons) : 'undefined',
+    reason: metadata.reason ? metadata.reason.substring(0, 50) + '...' : 'undefined',
+    provider: metadata.provider || 'undefined',
+    text_preview: text.substring(0, 50) + '...'
+  });
+
   // Apply consensus-based color
   const consensusLevel = metadata.consensus_level || 'medium';
   const colors = CONFIG.COLORS[consensusLevel];
 
   mark.style.backgroundColor = colors.bg;
+  mark.style.color = colors.text || 'inherit';
   mark.style.opacity = colors.opacity;
   mark.style.padding = CONFIG.HIGHLIGHT_PADDING;
   mark.style.cursor = 'help'; // Show help cursor on hover
   mark.setAttribute(CONFIG.DATA_ATTRIBUTE, 'active');
   mark.setAttribute('data-consensus-level', consensusLevel);
 
-  // Build tooltip text
-  let tooltipText = '';
+  // Store metadata for tooltip access
+  mark.dataset.metadata = JSON.stringify(metadata);
 
-  if (metadata.consensus_score) {
-    tooltipText += `합의 점수: ${metadata.consensus_score}\n`;
-    tooltipText += `선택한 모델: ${metadata.selected_by.join(', ')}\n\n`;
+  // Detect touch vs hover device
+  const isTouchDevice = window.matchMedia('(hover: none)').matches;
 
-    // Add reasons from each model
-    if (metadata.reasons && Object.keys(metadata.reasons).length > 0) {
-      tooltipText += '선택 이유:\n';
-      for (const [provider, reason] of Object.entries(metadata.reasons)) {
-        tooltipText += `• ${provider}: ${reason}\n`;
+  if (isTouchDevice) {
+    // Touch: Click to toggle tooltip
+    mark.addEventListener('click', function(e) {
+      e.preventDefault();
+      const storedMetadata = JSON.parse(this.dataset.metadata);
+
+      if (tooltipManager.currentTarget === this) {
+        tooltipManager.hide();
+      } else {
+        tooltipManager.show(this, storedMetadata);
       }
-    }
+    });
   } else {
-    // Legacy mode (single LLM)
-    tooltipText = '문해력 향상에 도움이 되는 문장';
+    // Hover: Show/hide tooltip
+    mark.addEventListener('mouseenter', function() {
+      const storedMetadata = JSON.parse(this.dataset.metadata);
+      tooltipManager.show(this, storedMetadata);
+    });
+
+    mark.addEventListener('mouseleave', function() {
+      tooltipManager.hide();
+    });
   }
 
-  mark.title = tooltipText.trim();
   mark.textContent = text;
 
   return mark;
@@ -311,6 +539,9 @@ function removeAllHighlights() {
   state.highlightedNodes = [];
   state.isActivated = false;
 
+  // Destroy custom tooltip
+  tooltipManager.destroy();
+
   log('Highlights removed');
 }
 
@@ -353,6 +584,13 @@ async function autoLoadAndHighlight() {
     if (response.success) {
       log(`Sentences loaded: ${response.count} items`);
       state.highlightTargets = response.sentences;
+
+      // Debug: Log loaded targets structure
+      console.log('[Tooltip Debug] Loaded targets:', state.highlightTargets);
+      if (state.highlightTargets.length > 0) {
+        console.log('[Tooltip Debug] First target sample:', state.highlightTargets[0]);
+      }
+
       executeHighlighting();
     } else {
       log(`Loading failed: ${response.error}`, 'error');

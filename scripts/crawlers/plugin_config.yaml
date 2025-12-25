@@ -1,0 +1,59 @@
+# Crawler Plugin Configuration
+#
+# This file defines the configuration for news site crawler plugins.
+# Each plugin can be enabled/disabled and configured independently.
+
+plugins:
+  # Chosun Ilbo
+  - name: chosun
+    enabled: true
+    priority: 10
+    domains:
+      - chosun.com
+    description: "Chosun Ilbo news crawler"
+
+  # JoongAng Ilbo
+  - name: joongang
+    enabled: true
+    priority: 10
+    domains:
+      - joongang.co.kr
+    description: "JoongAng Ilbo news crawler"
+
+  # Hankyoreh
+  - name: hani
+    enabled: true
+    priority: 10
+    domains:
+      - hani.co.kr
+    description: "Hankyoreh news crawler"
+
+  # Hankook Ilbo
+  - name: hankook
+    enabled: true
+    priority: 10
+    domains:
+      - hankookilbo.com
+    description: "Hankook Ilbo news crawler"
+
+  # Kyunghyang Shinmun
+  - name: khan
+    enabled: true
+    priority: 10
+    domains:
+      - khan.co.kr
+    description: "Kyunghyang Shinmun crawler"
+
+  # Generic fallback crawler (uses Readability)
+  - name: generic
+    enabled: true
+    priority: 1  # Lowest priority - used as fallback
+    domains:
+      - "*"  # Matches all domains
+    description: "Generic fallback crawler using Readability"
+
+# Notes:
+# - Higher priority plugins are tried first (0-100 scale)
+# - Generic plugin should have priority 1 as fallback
+# - Disable a plugin by setting enabled: false
+# - Multiple domains can be specified per plugin

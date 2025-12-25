@@ -1,67 +1,82 @@
-# W1 Starter Kit — 뉴스 품질·LLM 탐지 스캐폴딩
+# News Literacy Highlighter — Chrome Extension + Flask LLM Backend
 
-한 주 차에 필요한 **데이터 스캐폴딩 + LLM 출력 안정화**를 위한 최소 실행 패키지입니다.
+크롬 확장과 Flask 서버가 연동되어 뉴스 기사에 **문해력·비판적 읽기용 하이라이트**를 적용합니다. 기본 LLM은 **Gemini + Mistral 합의 모드**이며, API 연결 테스트/설정 문서가 포함되어 있습니다.
 
 ## 빠른 시작
 
-1. Python 3.10+ 설치 후 의존성 설치
-
+1) 의존성 설치
 ```bash
 pip install -r requirements.txt
 ```
 
-2. 환경변수 설정 (.env 복사)
-
+2) 환경변수 설정 (루트에 `.env` 작성)
 ```bash
-cp .env.example .env
-# .env 파일에 OPENAI_API_KEY, MODEL 지정
+GEMINI_API_KEY=...
+MISTRAL_API_KEY=...          # 추천, 합의 모드 기본값
+OPENAI_API_KEY=...           # 선택
+CLAUDE_API_KEY=...           # 선택
+FLASK_PORT=5001              # 크롬 확장 기본 포트와 일치
+CONSENSUS_ENABLED=True
+CONSENSUS_PROVIDERS=gemini,mistral
+LLM_PROVIDER=gemini          # 단일 모드 기본값
 ```
 
-3. 수집 대상 URL 준비
-
-* `data/input_urls.txt`에 기사 URL 30개 이상을 줄바꿈으로 입력
-
-4. 크롤링 & 정제
-
+3) API 연결 자가진단
 ```bash
-python scripts/crawler.py --in data/input_urls.txt --out results/articles_raw.jsonl
-python scripts/cleaner.py --in results/articles_raw.jsonl --out results/articles_clean.jsonl
+python scripts/test_api_connection.py
+```
+로그에서 각 프로바이더의 `CONNECTED/FAILED/NOT CONFIGURED` 상태를 확인합니다. 자세한 해석은 `docs/API_CONNECTION_GUIDE.md` 참고.
+
+4) 서버 실행
+```bash
+python scripts/server.py
+```
+기본 엔드포인트:
+- `GET /health`
+- `POST /analyze` (단일 LLM)
+- `POST /analyze_consensus` (기본: gemini + mistral)
+
+5) 크롬 확장 로드
+- `chrome://extensions` → 개발자 모드 → **Load unpacked** → `chrome-ex` 폴더 선택
+- 백그라운드가 `http://localhost:5001`로 Flask 서버에 HTTP 요청을 보냅니다. 포트를 바꿀 경우 `chrome-ex/background.js`의 `SERVER_URL`과 `manifest.json`의 `host_permissions`를 함께 수정하세요.
+
+6) 사용
+- 지원 도메인: `chosun.com`, `hani.co.kr`, `hankookilbo.com`, `joongang.co.kr`, `khan.co.kr`
+- 기사 페이지 접속 후 자동으로 0.3s 뒤 분석/하이라이팅이 실행되며, 콘솔 로그(`[하이라이터]`, `[Background]`)에서 진행 상황을 볼 수 있습니다.
+
+## 아키텍처
+```
+News page
+  ↓
+chrome-ex/content.js  (DOM 추출 + 하이라이트)
+  ↓
+chrome-ex/background.js (HTTP → Flask 서버, 캐싱)
+  ↓
+scripts/server.py  (기사 크롤링 + LLM/합의 분석)
+  ↓
+scripts/gemini_handler.py, mistral provider 등
 ```
 
-5. 기본 지표 계산(문해력/LLM 단서용 베이스라인)
+## 주요 구성/기능
+- **합의 분석 기본값**: `['gemini', 'mistral']` (`scripts/consensus_analyzer.py`, `/analyze_consensus`)
+- **Mistral 지원**: 모델 기본값 `mistral-small-2506` (`docs/MISTRAL_SETUP.md`)
+- **Gemini 모델**: `gemini-2.5-flash-lite` 기본값 (`scripts/gemini_handler.py`)
+- **API 테스트 유틸**: `scripts/test_api_connection.py` (모든 프로바이더 키/호출 점검)
+- **확장 HTTP 모드**: Native Messaging 대신 Flask HTTP(5001)로 통신 (`chrome-ex/background.js`, `manifest.json`)
 
-```bash
-python scripts/metrics_baseline.py --in results/articles_clean.jsonl --out results/articles_clean.jsonl
-```
+## API 요약 (기본 포트 5001)
+- `GET /health` : 서버/키 준비 상태 확인
+- `GET /test` : 간단 응답
+- `POST /analyze` : 단일 LLM 분석
+- `POST /analyze_consensus` : 다중 LLM 합의 분석 (`providers` 파라미터 없으면 gemini+mistral 사용)
 
-6. LLM 분석 스키마 튜닝(샘플 30편)
+## 문서 바로가기
+- `docs/MISTRAL_SETUP.md` : Mistral 키 발급/모델 설정/트러블슈팅
+- `docs/API_CONNECTION_GUIDE.md` : `scripts/test_api_connection.py` 로그 해석
+- `README_EXTENSION.md` : 확장 작동 방식/디버깅 가이드
 
-```bash
-python scripts/llm_tuner.py --in results/articles_clean.jsonl --out results/llm_samples.jsonl --n 30
-```
-
-## 산출물
-
-* `results/articles_raw.jsonl` : 크롤러 원본(간단 정리 포함)
-* `results/articles_clean.jsonl` : 정제 완료(스키마 준수 + 베이스라인 지표 컬럼 일부 추가)
-* `results/llm_samples.jsonl` : LLM 분석 JSON(주장/근거/오류/하이라이트 등)
-* `results/tuning_log.csv` : 프롬프트 안정화 로그(성공/실패/재시도)
-
-## 참고
-
-* 신뢰도 매핑: `data/credibility_map.csv` (도메인→점수). 실제 배포 시 최신화 필요.
-* 스키마: `data/article_schema.json` 을 기준으로 데이터 검증.
-
-## 실행 체크리스트 (W1 목표 달성 기준)
-
-- [ ] `results/articles_raw.jsonl` 생성 (30편+)
-- [ ] `results/articles_clean.jsonl` 생성 (스키마 준수, lang/credibility_score 포함)
-- [ ] `results/articles_clean.jsonl`에 `metrics.ttr/modal_ratio/avg_sent_len` 추가됨
-- [ ] `results/llm_samples.jsonl`에 최소 25편 이상 성공(JSON 유효)
-- [ ] `results/tuning_log.csv`에서 실패율 < 20%
-
-## 다음 단계(W2 예고)
-
-* 규칙기반 품질지표 고도화(헤드라인 극성, 근거 연결, fallacy 룰셋)
-* LLM 출력과 품질지표 결합 및 신뢰도 상관분석 파이프라인
-* 크롬 확장 content-script 시제품 연결(API: `/analyze`)
+## 체크리스트
+- [ ] `.env`에 `GEMINI_API_KEY`와 `MISTRAL_API_KEY`가 설정됨
+- [ ] `python scripts/test_api_connection.py`에서 필요한 프로바이더가 `CONNECTED`
+- [ ] `python scripts/server.py` 정상 기동 (`/health` OK)
+- [ ] 크롬 확장 로드 후 기사 페이지에서 자동 하이라이팅 동작

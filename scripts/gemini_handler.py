@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # Constants
 GEMINI_MODEL = 'gemini-2.5-flash-lite'
 MIN_SENTENCES = 3
-MAX_SENTENCES = 7
+MAX_SENTENCES = 5
 
 # System prompt for Gemini API
 SYSTEM_PROMPT = """시스템 역할: 당신은 비판적 읽기 훈련 코치이자 언론 분석가입니다.
@@ -30,7 +30,7 @@ SYSTEM_PROMPT = """시스템 역할: 당신은 비판적 읽기 훈련 코치이
 }
 
 규칙:
-- 기사에서 문해력, 논리적 사고, 비판적 읽기에 기여하는 문장 3~7개를 선택합니다.
+- 기사에서 문해력, 논리적 사고, 비판적 읽기에 기여하는 문장 3~5개를 선택합니다.
 - 이유는 (1) 문체·명료성, (2) 논리 구조, (3) 비판적 사고 유도 중 하나 이상에 근거해야 합니다.
 - JSON 외 다른 텍스트를 출력하지 마세요.
 """
@@ -118,6 +118,8 @@ class GeminiAnalyzer:
 
             logger.debug(f"Cleaned response: {result_text[:200]}...")
             parsed = json.loads(result_text)
+            if len(parsed) > MAX_SENTENCES:
+                parsed = dict(list(parsed.items())[:MAX_SENTENCES])
 
             logger.info(f"Successfully extracted {len(parsed)} sentences")
             return parsed
