@@ -59,6 +59,7 @@ results/*.json
 data/downloaded/
 data/cache/
 data/raw/
+scripts/data/
 *.jsonl
 *.log
 
@@ -68,6 +69,7 @@ data/raw/
 
 # Testing
 .pytest_cache/
+.mypy_cache/
 .coverage
 htmlcov/
 .tox/
@@ -118,3 +120,5 @@ yarn-error.log*
 # Documentation builds
 docs/_build/
 site/
+PHASE*_SUMMARY.md
+TEST_REPORT.md
