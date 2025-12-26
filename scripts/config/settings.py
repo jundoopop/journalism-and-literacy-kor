@@ -6,7 +6,7 @@ with type validation and sensible defaults.
 """
 
 import os
-from typing import Optional, List
+from typing import Optional, List, Dict
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,6 +26,21 @@ class LLMSettings(BaseSettings):
     max_retries: int = Field(3, validation_alias='LLM_MAX_RETRIES', description='Maximum retry attempts')
     temperature: float = Field(0.2, validation_alias='LLM_TEMPERATURE', description='LLM temperature parameter')
     max_tokens: Optional[int] = Field(None, validation_alias='LLM_MAX_TOKENS', description='Maximum output tokens')
+    max_tokens_per_provider: Dict[str, int] = Field(
+        default_factory=dict,
+        validation_alias='LLM_MAX_TOKENS_PER_PROVIDER',
+        description='Per-provider max output tokens'
+    )
+    token_pricing_per_1k: Dict[str, float] = Field(
+        default_factory=dict,
+        validation_alias='LLM_TOKEN_PRICING_PER_1K',
+        description='Per-provider USD cost per 1k tokens'
+    )
+    estimated_chars_per_token: int = Field(
+        4,
+        validation_alias='LLM_EST_CHARS_PER_TOKEN',
+        description='Heuristic chars per token for estimation'
+    )
 
     model_config = SettingsConfigDict(env_prefix='llm_', case_sensitive=False)
 
@@ -41,6 +56,13 @@ class LLMSettings(BaseSettings):
     def validate_temperature(cls, v):
         if v < 0 or v > 2:
             raise ValueError('Temperature must be between 0 and 2')
+        return v
+
+    @field_validator('estimated_chars_per_token')
+    @classmethod
+    def validate_estimated_chars_per_token(cls, v):
+        if v <= 0:
+            raise ValueError('Estimated chars per token must be greater than 0')
         return v
 
 

@@ -44,6 +44,84 @@ python scripts/server.py
 - 지원 도메인: `chosun.com`, `hani.co.kr`, `hankookilbo.com`, `joongang.co.kr`, `khan.co.kr`
 - 기사 페이지 접속 후 자동으로 0.3s 뒤 분석/하이라이팅이 실행되며, 콘솔 로그(`[하이라이터]`, `[Background]`)에서 진행 상황을 볼 수 있습니다.
 
+## End-to-End Start & User Guide (English)
+
+### 0) Prerequisites
+- Python 3.9+ with `pip`
+- Chrome (for the extension)
+- Optional: Docker (for Redis cache)
+
+### 1) Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 2) Configure environment
+Copy `.env.example` to `.env` and fill in your keys and settings.
+```bash
+cp .env.example .env
+```
+Required:
+- `GEMINI_API_KEY` (and `MISTRAL_API_KEY` for default consensus)
+- `FLASK_PORT` must match the Chrome extension server URL
+- `ADMIN_TOKEN` if you plan to use admin endpoints
+
+Optional:
+- Redis cache (`CACHE_ENABLED=True`, `REDIS_HOST=localhost`, `CACHE_TTL=3600`)
+- Consensus providers (`CONSENSUS_PROVIDERS=gemini,mistral`)
+
+### 3) Start optional Redis cache
+If you want server-side caching:
+```bash
+docker-compose up -d
+```
+To skip Redis, set `CACHE_ENABLED=False` and `ENABLE_CACHE=False` in `.env`.
+
+### 4) Start the server
+```bash
+python scripts/server.py
+```
+Verify it is running:
+```bash
+curl http://localhost:5001/health
+```
+
+### 5) Load the Chrome extension
+- Go to `chrome://extensions`
+- Enable Developer Mode
+- Click **Load unpacked** and select `chrome-ex`
+- If you change port, update `chrome-ex/background.js` (`SERVER_URL`) and `manifest.json` (`host_permissions`)
+
+### 6) Use the system
+- Open a supported news article.
+- Highlighting runs automatically after ~0.3s.
+- Check DevTools console for `[Highlighter]` / `[Background]` logs.
+
+### 7) API usage (optional)
+Single LLM:
+```bash
+curl -X POST http://localhost:5001/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://www.chosun.com/..."}'
+```
+Consensus:
+```bash
+curl -X POST http://localhost:5001/analyze_consensus \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://www.chosun.com/...","providers":["gemini","mistral"]}'
+```
+
+### 8) Admin endpoints (optional)
+Set `ADMIN_TOKEN` in `.env`, then call:
+```bash
+curl -H "X-Admin-Token: your_token" http://localhost:5001/admin/metrics
+curl -H "X-Admin-Token: your_token" http://localhost:5001/admin/health/detailed
+```
+
+### 9) Logs and data locations
+- Logs: `data/logs/`
+- Analytics DB: `data/analytics.db`
+
 ## 아키텍처
 ```
 News page

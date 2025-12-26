@@ -61,6 +61,17 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
         if not log_record.get('correlation_id'):
             log_record['correlation_id'] = getattr(record, 'correlation_id', 'none')
 
+        # Include token/cost fields if present on the record
+        for field_name in (
+            'prompt_tokens',
+            'completion_tokens',
+            'total_tokens',
+            'cost_usd',
+            'token_estimated'
+        ):
+            if field_name not in log_record and hasattr(record, field_name):
+                log_record[field_name] = getattr(record, field_name)
+
 
 def setup_logging(
     log_level: str = 'INFO',

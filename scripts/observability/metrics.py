@@ -36,7 +36,7 @@ class MetricsCollector:
     """
 
     def __init__(self):
-        self._counters: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        self._counters: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
         self._timings: Dict[str, Dict[str, List[float]]] = defaultdict(lambda: defaultdict(list))
         self._gauges: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
         self._lock = Lock()
@@ -52,7 +52,7 @@ class MetricsCollector:
         self._enabled = False
         logger.info("Metrics collection disabled")
 
-    def increment(self, metric_name: str, value: int = 1, tags: Optional[Dict[str, str]] = None):
+    def increment(self, metric_name: str, value: float = 1, tags: Optional[Dict[str, str]] = None):
         """
         Increment a counter metric.
 
@@ -128,6 +128,45 @@ class MetricsCollector:
                 result = analyze_article(text)
         """
         return Timer(self, metric_name, tags)
+
+    def record_token_usage(
+        self,
+        provider: str,
+        prompt_tokens: Optional[int],
+        completion_tokens: Optional[int],
+        total_tokens: Optional[int],
+        cost_usd: Optional[float] = None,
+        tags: Optional[Dict[str, str]] = None,
+        estimated: bool = False
+    ) -> None:
+        """
+        Record token usage and cost metrics for a provider.
+
+        Args:
+            provider: Provider name
+            prompt_tokens: Prompt token count
+            completion_tokens: Completion token count
+            total_tokens: Total token count
+            cost_usd: Optional cost in USD
+            tags: Optional metric tags
+            estimated: Whether values are estimated
+        """
+        if not self._enabled:
+            return
+
+        if tags is None:
+            tags = {}
+
+        tags = {**tags, "provider": provider, "estimated": str(estimated).lower()}
+
+        if prompt_tokens is not None:
+            self.increment("llm_prompt_tokens", prompt_tokens, tags=tags)
+        if completion_tokens is not None:
+            self.increment("llm_completion_tokens", completion_tokens, tags=tags)
+        if total_tokens is not None:
+            self.increment("llm_total_tokens", total_tokens, tags=tags)
+        if cost_usd is not None:
+            self.increment("llm_cost_usd", cost_usd, tags=tags)
 
     def get_summary(self) -> Dict[str, Any]:
         """

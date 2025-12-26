@@ -8,6 +8,7 @@ single LLM and consensus-based analysis.
 import time
 from typing import List, Dict, Optional, Any
 from dataclasses import dataclass, field
+from collections import defaultdict
 
 from .base_service import BaseService, ServiceError
 from observability import metrics
@@ -55,6 +56,8 @@ class AnalysisService(BaseService):
         self._gemini_analyzer = None
         self._consensus_analyzer = None
         self._cache_service = cache_service
+        self._gemini_system_prompt = None
+        self._consensus_system_prompt = None
 
     def _get_gemini_analyzer(self):
         """Lazy load Gemini analyzer."""
@@ -73,6 +76,147 @@ class AnalysisService(BaseService):
         sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
         from consensus_analyzer import ConsensusAnalyzer
         return ConsensusAnalyzer(providers=providers)
+
+    def _get_gemini_system_prompt(self) -> str:
+        """Get the Gemini system prompt for token estimation."""
+        if self._gemini_system_prompt is None:
+            import sys
+            import os
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from gemini_handler import SYSTEM_PROMPT
+            self._gemini_system_prompt = SYSTEM_PROMPT
+        return self._gemini_system_prompt
+
+    def _get_consensus_system_prompt(self) -> str:
+        """Get the consensus system prompt for token estimation."""
+        if self._consensus_system_prompt is None:
+            import sys
+            import os
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from consensus_analyzer import ANALYSIS_PROMPT
+            self._consensus_system_prompt = ANALYSIS_PROMPT
+        return self._consensus_system_prompt
+
+    def _build_prompt_text(self, system_prompt: str, article_text: str) -> str:
+        """Build prompt text used for token estimation."""
+        if not system_prompt:
+            return article_text
+        return f"{system_prompt}\n\n기사 본문:\n{article_text}"
+
+    def _estimate_tokens(self, text: str) -> int:
+        """Estimate token count from text length."""
+        if not text:
+            return 0
+        from config import settings
+        chars_per_token = settings.llm.estimated_chars_per_token or 4
+        if chars_per_token <= 0:
+            chars_per_token = 4
+        return max(1, int(len(text) / chars_per_token))
+
+    def _compute_cost(self, provider: str, total_tokens: int) -> Optional[float]:
+        """Compute estimated cost for a provider and token count."""
+        from config import settings
+        pricing = settings.llm.token_pricing_per_1k or {}
+        rate = pricing.get(provider)
+        if rate is None:
+            return None
+        return round((total_tokens / 1000.0) * rate, 6)
+
+    def _serialize_sentences(self, sentences: Dict[str, str]) -> str:
+        """Serialize sentence-reason pairs for token estimation."""
+        parts = []
+        for sentence, reason in sentences.items():
+            if reason:
+                parts.append(f"{sentence} {reason}")
+            else:
+                parts.append(sentence)
+        return " ".join(parts)
+
+    def _record_single_token_usage(
+        self,
+        provider: str,
+        article_text: str,
+        sentences: Dict[str, str]
+    ) -> Dict[str, Optional[float]]:
+        """Estimate and record token usage for single-provider analysis."""
+        prompt_text = self._build_prompt_text(self._get_gemini_system_prompt(), article_text)
+        prompt_tokens = self._estimate_tokens(prompt_text)
+        completion_text = self._serialize_sentences(sentences)
+        completion_tokens = self._estimate_tokens(completion_text)
+        total_tokens = prompt_tokens + completion_tokens
+        cost_usd = self._compute_cost(provider, total_tokens)
+
+        metrics.record_token_usage(
+            provider,
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
+            cost_usd,
+            tags={"mode": "single"},
+            estimated=True
+        )
+
+        return {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+            "cost_usd": cost_usd,
+            "token_estimated": True
+        }
+
+    def _record_consensus_token_usage(
+        self,
+        providers: List[str],
+        article_text: str,
+        sentences: List[Dict[str, Any]]
+    ) -> Dict[str, Optional[float]]:
+        """Estimate and record token usage per provider for consensus."""
+        prompt_text = self._build_prompt_text(self._get_consensus_system_prompt(), article_text)
+        prompt_tokens = self._estimate_tokens(prompt_text)
+
+        provider_outputs = defaultdict(list)
+        for sentence_data in sentences:
+            text = sentence_data.get("text", "")
+            reasons = sentence_data.get("reasons", {}) or {}
+            for provider, reason in reasons.items():
+                if text and reason:
+                    provider_outputs[provider].append(f"{text} {reason}")
+                elif text:
+                    provider_outputs[provider].append(text)
+                elif reason:
+                    provider_outputs[provider].append(reason)
+
+        total_tokens_sum = 0
+        total_cost_usd = 0.0
+        has_cost = False
+
+        for provider in providers:
+            completion_text = " ".join(provider_outputs.get(provider, []))
+            completion_tokens = self._estimate_tokens(completion_text)
+            total_tokens = prompt_tokens + completion_tokens
+            cost_usd = self._compute_cost(provider, total_tokens)
+
+            metrics.record_token_usage(
+                provider,
+                prompt_tokens,
+                completion_tokens,
+                total_tokens,
+                cost_usd,
+                tags={"mode": "consensus"},
+                estimated=True
+            )
+
+            total_tokens_sum += total_tokens
+            if cost_usd is not None:
+                total_cost_usd += cost_usd
+                has_cost = True
+
+        return {
+            "prompt_tokens": prompt_tokens,
+            "total_tokens": total_tokens_sum,
+            "cost_usd": total_cost_usd if has_cost else None,
+            "token_estimated": True
+        }
 
     def analyze_single(self, article_text: str, provider: str = 'gemini', url: Optional[str] = None, use_cache: bool = True) -> AnalysisResult:
         """
@@ -130,11 +274,14 @@ class AnalysisService(BaseService):
                 success=True
             )
 
+            token_usage = self._record_single_token_usage(provider, article_text, sentences)
+
             self.log_info(
                 "Single LLM analysis completed",
                 provider=provider,
                 sentence_count=len(sentences),
-                duration_ms=duration_ms
+                duration_ms=duration_ms,
+                **token_usage
             )
 
             self.increment_counter("analysis_success", tags={"mode": "single", "provider": provider})
@@ -246,12 +393,21 @@ class AnalysisService(BaseService):
                 total_duration_ms=duration_ms
             )
 
+            token_usage = {}
+            if result.successful_providers:
+                token_usage = self._record_consensus_token_usage(
+                    result.successful_providers,
+                    article_text,
+                    result.sentences
+                )
+
             self.log_info(
                 "Consensus analysis completed",
                 sentence_count=len(result.sentences),
                 successful_providers=result.successful_providers,
                 failed_providers=result.failed_providers,
-                duration_ms=duration_ms
+                duration_ms=duration_ms,
+                **token_usage
             )
 
             # Track success metrics
