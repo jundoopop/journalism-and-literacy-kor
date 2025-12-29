@@ -15,7 +15,36 @@ from config import OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, REQUEST_TIMEOU
 from openai import OpenAI
 client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
 
-PROMPT_PATH = Path("prompts/base_prompt_ko.txt")
+PROMPT_DIR = Path("prompts")
+DEFAULT_PROMPT_FILE = "base_prompt_ko.txt"
+PROVIDER_PROMPT_FILES = {
+    "gemini": "base_prompt_ko_gemini.txt",
+    "mistral": "base_prompt_ko_mistral.txt",
+    "openai": "base_prompt_ko_openai.txt",
+    "claude": "base_prompt_ko_claude.txt",
+    "llama": "base_prompt_ko_llama.txt"
+}
+
+
+def _resolve_prompt_path(provider: str, model_name: str = "") -> Path:
+    """
+    Resolve prompt file path based on provider and model.
+
+    For OpenAI nano models, uses lightweight nano-optimized prompt.
+    For other OpenAI models (gpt-5, gpt-4, etc.), uses full enhanced prompt.
+    """
+    provider_key = provider.lower().strip()
+
+    # Special handling for OpenAI nano models
+    if provider_key == "openai" and model_name and "nano" in model_name.lower():
+        nano_prompt = PROMPT_DIR / "base_prompt_ko_openai_nano.txt"
+        if nano_prompt.is_file():
+            return nano_prompt
+
+    candidate = PROMPT_DIR / PROVIDER_PROMPT_FILES.get(provider_key, "")
+    if candidate.is_file():
+        return candidate
+    return PROMPT_DIR / DEFAULT_PROMPT_FILE
 SCHEMA = {
     "type": "object",
     "properties": {
@@ -44,9 +73,11 @@ def call_llm(payload: dict, sys_prompt: str):
     return resp.choices[0].message.content
 
 
-def main(inp: str, out: str, n: int):
+def main(inp: str, out: str, n: int, provider: str):
     ensure_dir(out)
-    sys_prompt = PROMPT_PATH.read_text(encoding="utf-8")
+    prompt_path = _resolve_prompt_path(provider, OPENAI_MODEL)
+    sys_prompt = prompt_path.read_text(encoding="utf-8")
+    print(f"Using prompt: {prompt_path.name} for provider={provider}, model={OPENAI_MODEL}")
 
     # 입력 JSONL 로드
     rows = []
@@ -111,5 +142,12 @@ if __name__ == "__main__":
     ap.add_argument("--in", dest="inp", required=True)
     ap.add_argument("--out", dest="out", required=True)
     ap.add_argument("--n", dest="n", type=int, default=30)
+    ap.add_argument(
+        "--provider",
+        dest="provider",
+        default="openai",
+        choices=sorted(PROVIDER_PROMPT_FILES.keys()),
+        help="Prompt provider variant to use"
+    )
     args = ap.parse_args()
-    main(args.inp, args.out, args.n)
+    main(args.inp, args.out, args.n, args.provider)
