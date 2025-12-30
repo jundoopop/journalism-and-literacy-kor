@@ -21,7 +21,7 @@ google-generativeai==0.8.3
 keyring==25.5.0
 
 # Phase 1: Observability & Configuration
-pydantic==2.5.3
+pydantic==2.10.4
 pydantic-settings==2.1.0
 python-json-logger==2.0.7
 
@@ -43,3 +43,8 @@ pytest==7.4.3
 pytest-cov==4.1.0
 pytest-mock==3.12.0
 pytest-asyncio==0.21.1
+
+# Benchmark Evaluation
+sentence-transformers==2.2.2
+scipy==1.11.4
+openpyxl==3.1.2
