@@ -111,7 +111,10 @@ def admin_auth_middleware(require_auth: bool = True):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             # Skip auth if disabled in settings
-            if not settings.enable_admin_api or not require_auth:
+            if not settings.enable_admin_api:
+                from .errors import NotFoundError
+                return error_response(NotFoundError("Admin API disabled"))
+            if not require_auth:
                 return f(*args, **kwargs)
 
             # Get token from header
@@ -155,7 +158,7 @@ def admin_auth_middleware(require_auth: bool = True):
 
                 # Track failed auth attempts
                 metrics.increment("admin_auth_failures", tags={
-                    "path": request.path,
+                    "path": request.url_rule.rule if request.url_rule else "unmatched",
                     "remote_addr": request.remote_addr
                 })
 
@@ -171,7 +174,7 @@ def admin_auth_middleware(require_auth: bool = True):
                 path=request.path
             )
 
-            metrics.increment("admin_auth_success", tags={"path": request.path})
+            metrics.increment("admin_auth_success", tags={"path": request.url_rule.rule if request.url_rule else "unmatched"})
 
             return f(*args, **kwargs)
 
@@ -206,15 +209,15 @@ def metrics_middleware(app):
 
             # Track request count
             metrics.increment("http_requests_total", tags={
-                "method": request.method,
-                "path": request.path,
+                "method": request.method if request.method in {"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"} else "OTHER",
+                "path": request.url_rule.rule if request.url_rule else "unmatched",
                 "status": str(response.status_code)
             })
 
             # Track request latency
             metrics.timing("http_request_duration_ms", duration_ms, tags={
-                "method": request.method,
-                "path": request.path,
+                "method": request.method if request.method in {"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"} else "OTHER",
+                "path": request.url_rule.rule if request.url_rule else "unmatched",
                 "status": str(response.status_code)
             })
 
@@ -222,7 +225,7 @@ def metrics_middleware(app):
             status_class = f"{response.status_code // 100}xx"
             metrics.increment("http_responses_total", tags={
                 "status_class": status_class,
-                "path": request.path
+                "path": request.url_rule.rule if request.url_rule else "unmatched"
             })
 
         return response
@@ -239,6 +242,14 @@ def error_handler_middleware(app):
     """
 
     from .errors import AppError
+    from werkzeug.exceptions import HTTPException
+
+    @app.errorhandler(HTTPException)
+    def handle_http_error(error):
+        app_error = AppError(error.description)
+        app_error.status_code = error.code
+        app_error.code = error.name.upper().replace(" ", "_")
+        return error_response(app_error)
 
     @app.errorhandler(AppError)
     def handle_app_error(error: AppError):
@@ -265,7 +276,7 @@ def error_handler_middleware(app):
 
         error = NotFoundError(
             f"Endpoint not found: {request.path}",
-            details={"path": request.path, "method": request.method}
+            details={"path": request.url_rule.rule if request.url_rule else "unmatched", "method": request.method}
         )
 
         return error_response(error)
@@ -283,11 +294,11 @@ def error_handler_middleware(app):
 
         error = AppError(
             "An unexpected error occurred",
-            details={"path": request.path}
+            details={"path": request.url_rule.rule if request.url_rule else "unmatched"}
         )
 
         metrics.increment("unhandled_exceptions_total", tags={
-            "path": request.path
+            "path": request.url_rule.rule if request.url_rule else "unmatched"
         })
 
         return error_response(error)
@@ -307,14 +318,13 @@ def error_handler_middleware(app):
         app_error = AppError(
             "An unexpected error occurred",
             details={
-                "path": request.path,
-                "error_type": type(error).__name__,
-                "error_message": str(error)
+                "path": request.url_rule.rule if request.url_rule else "unmatched",
+                "error_type": type(error).__name__
             }
         )
 
         metrics.increment("unhandled_exceptions_total", tags={
-            "path": request.path,
+            "path": request.url_rule.rule if request.url_rule else "unmatched",
             "error_type": type(error).__name__
         })
 

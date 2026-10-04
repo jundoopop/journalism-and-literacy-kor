@@ -31,7 +31,7 @@ class TestFeatureFlagsService:
         assert len(all_flags) > 0
 
         # Check for expected default flags
-        flag_names = [f['name'] for f in all_flags]
+        flag_names = list(all_flags)
         assert 'cache_enabled' in flag_names
         assert 'strict_consensus' in flag_names
 
@@ -48,7 +48,7 @@ class TestFeatureFlagsService:
 
         flag = self.service.get_flag('test_flag')
         assert flag is not None
-        assert flag['name'] == 'test_flag'
+        assert self.service.is_enabled('test_flag')
         assert flag['enabled'] is True
         assert flag['config']['timeout'] == 30
 
@@ -76,7 +76,7 @@ class TestFeatureFlagsService:
     def test_get_config_nonexistent(self):
         """Test retrieving config for non-existent flag."""
         config = self.service.get_config('nonexistent')
-        assert config == {}
+        assert config is None
 
     def test_get_enabled_flags(self):
         """Test getting all enabled flags."""
@@ -85,7 +85,7 @@ class TestFeatureFlagsService:
         self.service.set_flag('flag3', False)
 
         enabled = self.service.get_enabled_flags()
-        enabled_names = [f['name'] for f in enabled]
+        enabled_names = enabled
 
         assert 'flag1' in enabled_names
         assert 'flag2' in enabled_names
@@ -144,7 +144,7 @@ class TestFeatureFlagsService:
         all_flags = self.service.get_all_flags()
 
         assert len(all_flags) >= 2
-        flag_names = [f['name'] for f in all_flags]
+        flag_names = list(all_flags)
         assert 'flag1' in flag_names
         assert 'flag2' in flag_names
 

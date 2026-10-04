@@ -6,9 +6,8 @@
 // DOM elements
 const singleModeRadio = document.getElementById('singleMode');
 const consensusModeRadio = document.getElementById('consensusMode');
-const geminiCheckbox = document.getElementById('gemini');
-const openaiCheckbox = document.getElementById('openai');
-const claudeCheckbox = document.getElementById('claude');
+const providerCheckboxes = ['gemini', 'openai', 'claude', 'mistral', 'llama']
+  .map(id => document.getElementById(id));
 const providerSection = document.getElementById('providerSection');
 const colorLegend = document.getElementById('colorLegend');
 const saveBtn = document.getElementById('saveBtn');
@@ -73,30 +72,10 @@ async function saveSettings(settings) {
 function updateUIState() {
   const isSingleMode = singleModeRadio.checked;
 
-  // In single mode, disable provider checkboxes (except Gemini)
+  colorLegend.style.display = isSingleMode ? 'none' : 'block';
   if (isSingleMode) {
-    openaiCheckbox.disabled = true;
-    claudeCheckbox.disabled = true;
-    openaiCheckbox.checked = false;
-    claudeCheckbox.checked = false;
-
-    // Hide color legend in single mode
-    colorLegend.style.display = 'none';
-
-    // Grey out provider section
-    openaiCheckbox.parentElement.classList.add('disabled');
-    claudeCheckbox.parentElement.classList.add('disabled');
-  } else {
-    // Consensus mode: enable provider selection
-    openaiCheckbox.disabled = false;
-    claudeCheckbox.disabled = false;
-
-    // Show color legend
-    colorLegend.style.display = 'block';
-
-    // Remove grey out
-    openaiCheckbox.parentElement.classList.remove('disabled');
-    claudeCheckbox.parentElement.classList.remove('disabled');
+    const selected = providerCheckboxes.find(box => box.checked) || providerCheckboxes[0];
+    providerCheckboxes.forEach(box => { box.checked = box === selected; });
   }
 }
 
@@ -114,9 +93,7 @@ function applySettingsToUI(settings) {
   // Set provider checkboxes
   const providers = settings.providers || ['gemini'];
 
-  geminiCheckbox.checked = true; // Always checked and disabled
-  openaiCheckbox.checked = providers.includes('openai');
-  claudeCheckbox.checked = providers.includes('claude');
+  providerCheckboxes.forEach(box => { box.checked = providers.includes(box.value); });
 
   // Update UI state
   updateUIState();
@@ -128,12 +105,7 @@ function applySettingsToUI(settings) {
 function getSettingsFromUI() {
   const mode = singleModeRadio.checked ? 'single' : 'consensus';
 
-  const providers = ['gemini']; // Gemini is always included
-
-  if (mode === 'consensus') {
-    if (openaiCheckbox.checked) providers.push('openai');
-    if (claudeCheckbox.checked) providers.push('claude');
-  }
+  const providers = providerCheckboxes.filter(box => box.checked).map(box => box.value);
 
   return { mode, providers };
 }
@@ -146,6 +118,9 @@ function getSettingsFromUI() {
  * Validate settings before saving
  */
 function validateSettings(settings) {
+  if (settings.mode === 'single' && settings.providers.length !== 1) {
+    return { valid: false, error: '단일 모드에서는 제공자 하나를 선택하세요.' };
+  }
   // Consensus mode must have at least 2 providers
   if (settings.mode === 'consensus' && settings.providers.length < 2) {
     return {
@@ -207,6 +182,11 @@ function handleCancel() {
 // Event Listeners
 // ============================================
 
+providerCheckboxes.forEach(box => box.addEventListener('change', () => {
+  if (singleModeRadio.checked && box.checked) {
+    providerCheckboxes.forEach(other => { other.checked = other === box; });
+  }
+}));
 singleModeRadio.addEventListener('change', handleModeChange);
 consensusModeRadio.addEventListener('change', handleModeChange);
 saveBtn.addEventListener('click', handleSave);
