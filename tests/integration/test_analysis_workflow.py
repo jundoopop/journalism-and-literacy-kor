@@ -8,28 +8,29 @@ from services import AnalysisService, CacheService, FeatureFlagsService
 from crawlers.registry import CrawlerRegistry
 
 
+@pytest.fixture
+def setup_services( temp_database, monkeypatch):
+    """Setup all required services."""
+    monkeypatch.setenv("DATABASE_PATH", temp_database)
+
+    from database import init_database
+    init_database()
+
+    cache_service = CacheService()
+    analysis_service = AnalysisService(cache_service=cache_service)
+    feature_flags = FeatureFlagsService()
+    crawler_registry = CrawlerRegistry()
+
+    return {
+        'cache': cache_service,
+        'analysis': analysis_service,
+        'flags': feature_flags,
+        'crawler': crawler_registry
+    }
+
+
 class TestAnalysisWorkflow:
     """Test end-to-end analysis workflow."""
-
-    @pytest.fixture
-    def setup_services(self, temp_database, monkeypatch):
-        """Setup all required services."""
-        monkeypatch.setenv("DATABASE_PATH", temp_database)
-
-        from database import init_database
-        init_database()
-
-        cache_service = CacheService()
-        analysis_service = AnalysisService(cache_service=cache_service)
-        feature_flags = FeatureFlagsService()
-        crawler_registry = CrawlerRegistry()
-
-        return {
-            'cache': cache_service,
-            'analysis': analysis_service,
-            'flags': feature_flags,
-            'crawler': crawler_registry
-        }
 
     def test_crawler_to_analysis_integration(self, setup_services, mock_article_html):
         """Test integration from crawling to analysis."""
@@ -90,21 +91,25 @@ class TestAnalysisWorkflow:
         from database import AnalyticsRepository
 
         services = setup_services
-        repo = AnalyticsRepository()
+        from database import get_session
+        session = get_session()
+        repo = AnalyticsRepository(session)
 
         # Log a request
         repo.log_request(
             correlation_id="integration_test",
-            method="POST",
-            endpoint="/analyze",
-            status_code=200,
+            url="https://www.hani.co.kr/a",
+            mode="single",
+            providers=["gemini"],
+            status="success",
             duration_ms=1500.0
         )
 
         # Verify logged
-        recent = repo.get_recent_requests(limit=1)
+        recent = repo.get_request_history(limit=1)
         assert len(recent) > 0
         assert recent[0].correlation_id == "integration_test"
+        session.close()
 
     def test_error_handling_across_services(self, setup_services):
         """Test error handling in service integration."""
@@ -204,7 +209,7 @@ class TestHealthMonitoringIntegration:
         # Each provider should have status
         for provider, status in providers.items():
             assert 'status' in status
-            assert status['status'] in ['healthy', 'unhealthy', 'not_configured']
+            assert status['status'] in ['up', 'down', 'error', 'unknown', 'not_configured']
 
 
 class TestCLIToolsIntegration:
@@ -280,16 +285,18 @@ class TestEndToEndWorkflow:
         # Step 5: Verify logged to database
         from database import AnalyticsRepository
 
-        repo = AnalyticsRepository()
+        from database import get_session
+        session = get_session()
+        repo = AnalyticsRepository(session)
         repo.log_analysis_result(
             correlation_id="e2e_test",
-            url=url,
             provider="gemini",
             success=True,
-            response_data=analysis_result,
-            duration_ms=2000.0
+            sentence_count=1,
+            latency_ms=2000
         )
 
         # Verify end-to-end
-        logged = repo.get_analysis_results_by_url(url)
+        logged = repo.get_analyses_by_correlation_id("e2e_test")
         assert len(logged) > 0
+        session.close()

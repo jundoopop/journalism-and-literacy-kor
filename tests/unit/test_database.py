@@ -1,360 +1,138 @@
-"""
-Unit tests for database models and repository.
-"""
-
+"""Database contracts: real SQLite sessions, models and repository operations."""
+import json
+from datetime import datetime
 import pytest
-from datetime import datetime, timedelta
-from database import (
-    RequestLog, AnalysisResult, ProviderMetric, FeatureFlag,
-    AnalyticsRepository, init_database, session_scope
-)
+from database import (RequestLog, AnalysisResult, ProviderMetric, FeatureFlag,
+                      AnalyticsRepository, init_database, session_scope)
+
+
+def request_record(correlation_id):
+    return RequestLog(correlation_id=correlation_id, url='https://www.hani.co.kr/a',
+                      mode='consensus', providers='["gemini"]', status='success', duration_ms=100)
+
+
+@pytest.fixture(autouse=True)
+def schema():
+    init_database()
 
 
 class TestDatabaseModels:
-    """Test database model creation and operations."""
-
-    @pytest.fixture(autouse=True)
-    def setup(self, temp_database, monkeypatch):
-        """Setup test database before each test."""
-        monkeypatch.setenv("DATABASE_PATH", temp_database)
-        init_database()
-
     def test_request_log_creation(self):
-        """Test creating a request log entry."""
         with session_scope() as session:
-            log = RequestLog(
-                correlation_id="test_123",
-                url="https://test.com/article",
-                mode="consensus",
-                providers='["gemini", "mistral"]',
-                status="success",
-                duration_ms=1500
-            )
-
-            session.add(log)
-            session.commit()
-
-            # Retrieve and verify
-            retrieved = session.query(RequestLog).filter_by(
-                correlation_id="test_123"
-            ).first()
-
-            assert retrieved is not None
-            assert retrieved.url == "https://test.com/article"
-            assert retrieved.mode == "consensus"
-            assert retrieved.status == "success"
-            assert retrieved.duration_ms == 1500
+            session.add(request_record('request'))
+        with session_scope() as session:
+            record = session.query(RequestLog).filter_by(correlation_id='request').one()
+            assert record.mode == 'consensus'
+            assert record.duration_ms == 100
 
     def test_analysis_result_creation(self):
-        """Test creating an analysis result entry."""
         with session_scope() as session:
-            result = AnalysisResult(
-                correlation_id="test_456",
-                url="https://example.com/article",
-                provider="gemini",
-                success=True,
-                response_data={"sentences": {"test": "reason"}},
-                duration_ms=2000.0,
-                model_name="gemini-2.5-flash-lite"
-            )
-
-            session.add(result)
-            session.commit()
-
-            # Retrieve and verify
-            retrieved = session.query(AnalysisResult).filter_by(
-                correlation_id="test_456"
-            ).first()
-
-            assert retrieved is not None
-            assert retrieved.provider == "gemini"
-            assert retrieved.success is True
-            assert retrieved.response_data["sentences"] == {"test": "reason"}
+            session.add(request_record('analysis'))
+            session.add(AnalysisResult(correlation_id='analysis', provider='gemini',
+                                       sentence_count=3, latency_ms=2000, success=True))
+        with session_scope() as session:
+            result = session.query(AnalysisResult).filter_by(correlation_id='analysis').one()
+            assert result.sentence_count == 3
+            assert result.request.url == 'https://www.hani.co.kr/a'
 
     def test_provider_metric_creation(self):
-        """Test creating provider metrics."""
         with session_scope() as session:
-            metric = ProviderMetric(
-                provider="mistral",
-                metric_type="latency",
-                value=1234.5,
-                timestamp=datetime.utcnow(),
-                metadata={"model": "mistral-large"}
-            )
-
-            session.add(metric)
-            session.commit()
-
-            # Retrieve and verify
-            retrieved = session.query(ProviderMetric).filter_by(
-                provider="mistral"
-            ).first()
-
-            assert retrieved is not None
-            assert retrieved.metric_type == "latency"
-            assert retrieved.value == 1234.5
+            session.add(ProviderMetric(provider='mistral', hour_bucket=datetime.utcnow(),
+                                       total_requests=10, successful_requests=9, failed_requests=1,
+                                       avg_latency_ms=1234.5, error_types='{"timeout": 1}'))
+        with session_scope() as session:
+            metric = session.query(ProviderMetric).filter_by(provider='mistral').one()
+            assert metric.total_requests == 10
+            assert metric.avg_latency_ms == 1234.5
 
     def test_feature_flag_creation(self):
-        """Test creating feature flags."""
         with session_scope() as session:
-            flag = FeatureFlag(
-                name="test_feature",
-                enabled=True,
-                config={"timeout": 30},
-                description="Test feature flag"
-            )
-
-            session.add(flag)
-            session.commit()
-
-            # Retrieve and verify
-            retrieved = session.query(FeatureFlag).filter_by(
-                name="test_feature"
-            ).first()
-
-            assert retrieved is not None
-            assert retrieved.enabled is True
-            assert retrieved.config["timeout"] == 30
+            session.add(FeatureFlag(flag_name='test_feature', enabled=True, config='{"timeout":30}'))
+        with session_scope() as session:
+            flag = session.query(FeatureFlag).filter_by(flag_name='test_feature').one()
+            assert flag.enabled
+            assert json.loads(flag.config)['timeout'] == 30
 
     def test_feature_flag_update(self):
-        """Test updating feature flag."""
         with session_scope() as session:
-            flag = FeatureFlag(
-                name="update_test",
-                enabled=True,
-                config={"version": 1}
-            )
-            session.add(flag)
-            session.commit()
-
-        # Update the flag
-        with session_scope() as session:
-            flag = session.query(FeatureFlag).filter_by(
-                name="update_test"
-            ).first()
-
-            flag.enabled = False
-            flag.config = {"version": 2}
-            session.commit()
-
-        # Verify update
-        with session_scope() as session:
-            flag = session.query(FeatureFlag).filter_by(
-                name="update_test"
-            ).first()
-
-            assert flag.enabled is False
-            assert flag.config["version"] == 2
-            assert flag.updated_at > flag.created_at
+            repo = AnalyticsRepository(session)
+            repo.set_feature_flag('update_test', True, config={'version': 1})
+            old = repo.get_feature_flag('update_test').updated_at
+            repo.set_feature_flag('update_test', False, config={'version': 2})
+            flag = repo.get_feature_flag('update_test')
+            assert not flag.enabled
+            assert json.loads(flag.config)['version'] == 2
+            assert flag.updated_at >= old
 
 
 class TestAnalyticsRepository:
-    """Test analytics repository operations."""
-
     @pytest.fixture(autouse=True)
-    def setup(self, temp_database, monkeypatch):
-        """Setup test database and repository."""
-        monkeypatch.setenv("DATABASE_PATH", temp_database)
-        init_database()
-        self.repo = AnalyticsRepository()
+    def setup(self):
+        with session_scope() as session:
+            self.repo = AnalyticsRepository(session)
+            yield
+
+    def log_request(self, key):
+        return self.repo.log_request(key, 'https://www.hani.co.kr/a', 'consensus', ['gemini'], 'success', 100)
 
     def test_repository_initialization(self):
-        """Test that repository initializes correctly."""
-        assert self.repo is not None
+        assert self.repo.session is not None
 
     def test_log_request(self):
-        """Test logging a request."""
-        self.repo.log_request(
-            correlation_id="req_123",
-            method="GET",
-            endpoint="/health",
-            status_code=200,
-            duration_ms=50.0,
-            client_ip="127.0.0.1"
-        )
-
-        # Verify logged
-        with session_scope() as session:
-            log = session.query(RequestLog).filter_by(
-                correlation_id="req_123"
-            ).first()
-
-            assert log is not None
-            assert log.endpoint == "/health"
+        self.log_request('req')
+        assert self.repo.get_request_by_correlation_id('req').url == 'https://www.hani.co.kr/a'
 
     def test_log_analysis_result(self):
-        """Test logging an analysis result."""
-        self.repo.log_analysis_result(
-            correlation_id="req_456",
-            url="https://test.com",
-            provider="gemini",
-            success=True,
-            response_data={"test": "data"},
-            duration_ms=1500.0,
-            model_name="gemini-flash",
-            error_message=None
-        )
-
-        # Verify logged
-        with session_scope() as session:
-            result = session.query(AnalysisResult).filter_by(
-                correlation_id="req_456"
-            ).first()
-
-            assert result is not None
-            assert result.provider == "gemini"
-            assert result.success is True
+        self.log_request('analysis')
+        self.repo.log_analysis_result('analysis', 'gemini', 3, latency_ms=1500)
+        result = self.repo.get_analyses_by_correlation_id('analysis')[0]
+        assert result.success and result.sentence_count == 3
 
     def test_log_provider_metric(self):
-        """Test logging provider metrics."""
-        self.repo.log_provider_metric(
-            provider="mistral",
-            metric_type="success_rate",
-            value=0.95,
-            metadata={"period": "1h"}
-        )
-
-        # Verify logged
-        with session_scope() as session:
-            metric = session.query(ProviderMetric).filter_by(
-                provider="mistral",
-                metric_type="success_rate"
-            ).first()
-
-            assert metric is not None
-            assert metric.value == 0.95
+        hour = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+        self.repo.update_provider_metrics('mistral', hour, 10, 9, 1, 100, {'timeout': 1})
+        self.repo.update_provider_metrics('mistral', hour, 20, 18, 2, 110, {'timeout': 2})
+        rows = self.repo.session.query(ProviderMetric).filter_by(provider='mistral').all()
+        assert len(rows) == 1
+        assert rows[0].total_requests == 20
 
     def test_get_recent_requests(self):
-        """Test retrieving recent requests."""
-        # Log multiple requests
         for i in range(5):
-            self.repo.log_request(
-                correlation_id=f"req_{i}",
-                method="POST",
-                endpoint="/analyze",
-                status_code=200,
-                duration_ms=1000.0
-            )
-
-        # Get recent requests
-        recent = self.repo.get_recent_requests(limit=3)
-
-        assert len(recent) == 3
+            self.log_request(f'req-{i}')
+        assert len(self.repo.get_request_history(limit=3)) == 3
 
     def test_get_provider_metrics(self):
-        """Test retrieving provider metrics."""
-        # Log metrics
-        now = datetime.utcnow()
-
         for i in range(3):
-            self.repo.log_provider_metric(
-                provider="gemini",
-                metric_type="latency",
-                value=1000.0 + i * 100
-            )
-
-        # Get metrics
-        metrics = self.repo.get_provider_metrics(
-            provider="gemini",
-            metric_type="latency",
-            since=now - timedelta(minutes=5)
-        )
-
-        assert len(metrics) == 3
+            self.log_request(f'metric-{i}')
+            self.repo.log_analysis_result(f'metric-{i}', 'gemini', 2, latency_ms=100 + i * 100)
+        stats = self.repo.get_provider_stats(provider='gemini')
+        assert len(stats) == 1
+        assert stats[0]['total_analyses'] == 3
+        assert stats[0]['avg_latency_ms'] == 200
 
     def test_get_analysis_results_by_url(self):
-        """Test retrieving analysis results for a specific URL."""
-        url = "https://test.com/article"
-
-        # Log multiple results for same URL
-        for provider in ["gemini", "mistral"]:
-            self.repo.log_analysis_result(
-                correlation_id=f"req_{provider}",
-                url=url,
-                provider=provider,
-                success=True,
-                response_data={},
-                duration_ms=1000.0
-            )
-
-        # Get results
-        results = self.repo.get_analysis_results_by_url(url)
-
-        assert len(results) >= 2
-        providers = [r.provider for r in results]
-        assert "gemini" in providers
-        assert "mistral" in providers
+        self.log_request('url-analysis')
+        for name in ('gemini', 'mistral'):
+            self.repo.log_analysis_result('url-analysis', name, 2)
+        request = self.repo.session.query(RequestLog).filter_by(url='https://www.hani.co.kr/a').one()
+        assert {r.provider for r in request.analysis_results} == {'gemini', 'mistral'}
 
     def test_get_failed_analyses(self):
-        """Test retrieving failed analyses."""
-        # Log successful and failed results
-        self.repo.log_analysis_result(
-            correlation_id="success",
-            url="https://test.com",
-            provider="gemini",
-            success=True,
-            response_data={},
-            duration_ms=1000.0
-        )
-
-        self.repo.log_analysis_result(
-            correlation_id="failure",
-            url="https://test.com",
-            provider="mistral",
-            success=False,
-            response_data={},
-            duration_ms=1000.0,
-            error_message="API error"
-        )
-
-        # Get failed analyses
-        failed = self.repo.get_failed_analyses(limit=10)
-
-        assert len(failed) >= 1
-        assert all(not r.success for r in failed)
+        self.log_request('mixed')
+        self.repo.log_analysis_result('mixed', 'gemini', 2)
+        self.repo.log_analysis_result('mixed', 'mistral', 0, success=False, error_type='timeout')
+        failed = self.repo.session.query(AnalysisResult).filter_by(success=False).all()
+        assert len(failed) == 1 and failed[0].provider == 'mistral'
 
     def test_session_scope_commit(self):
-        """Test that session_scope commits on success."""
         with session_scope() as session:
-            log = RequestLog(
-                correlation_id="commit_test",
-                method="GET",
-                endpoint="/test",
-                status_code=200,
-                duration_ms=100.0
-            )
-            session.add(log)
-
-        # Should be committed
-        with session_scope() as session:
-            retrieved = session.query(RequestLog).filter_by(
-                correlation_id="commit_test"
-            ).first()
-
-            assert retrieved is not None
+            session.add(request_record('commit'))
+        assert self.repo.get_request_by_correlation_id('commit') is not None
 
     def test_session_scope_rollback_on_error(self):
-        """Test that session_scope rolls back on error."""
-        try:
+        with pytest.raises(ValueError):
             with session_scope() as session:
-                log = RequestLog(
-                    correlation_id="rollback_test",
-                    method="GET",
-                    endpoint="/test",
-                    status_code=200,
-                    duration_ms=100.0
-                )
-                session.add(log)
-
-                # Raise error before commit
-                raise ValueError("Test error")
-        except ValueError:
-            pass
-
-        # Should be rolled back
-        with session_scope() as session:
-            retrieved = session.query(RequestLog).filter_by(
-                correlation_id="rollback_test"
-            ).first()
-
-            assert retrieved is None
+                session.add(request_record('rollback'))
+                session.flush()
+                raise ValueError('rollback')
+        assert self.repo.get_request_by_correlation_id('rollback') is None
