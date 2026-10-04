@@ -66,7 +66,7 @@ class AnalysisService(BaseService):
             import os
             sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
             from gemini_handler import GeminiAnalyzer
-            self._gemini_analyzer = GeminiAnalyzer()
+            return GeminiAnalyzer()
         return self._gemini_analyzer
 
     def _get_consensus_analyzer(self, providers: List[str]):
@@ -254,6 +254,7 @@ class AnalysisService(BaseService):
                     provider=provider,
                     sentences=cached_result.get('sentences', {}),
                     duration_ms=cached_result.get('duration_ms'),
+                    model_name=cached_result.get('model_name'),
                     success=True
                 )
 
@@ -262,12 +263,19 @@ class AnalysisService(BaseService):
                 if provider == 'gemini':
                     analyzer = self._get_gemini_analyzer()
                     sentences = analyzer.analyze_article(article_text)
+                    model_name = analyzer.model_name
                 else:
-                    raise AnalysisError(f"Unsupported provider for single analysis: {provider}")
+                    from llm.factory import LLMFactory
+                    from llm.prompts.article_analysis import ARTICLE_ANALYSIS_PROMPT
+                    analyzer = LLMFactory.create(provider)
+                    llm_result = analyzer.analyze_article(article_text, ARTICLE_ANALYSIS_PROMPT)
+                    sentences = llm_result.sentences
+                    model_name = llm_result.model
 
             duration_ms = int((time.time() - start_time) * 1000)
 
             result = AnalysisResult(
+                model_name=model_name,
                 provider=provider,
                 sentences=sentences,
                 duration_ms=duration_ms,
@@ -292,7 +300,8 @@ class AnalysisService(BaseService):
                 cache_data = {
                     'sentences': sentences,
                     'duration_ms': duration_ms,
-                    'provider': provider
+                    'provider': provider,
+                    'model_name': model_name
                 }
                 self._cache_service.set_analysis_result(url, [provider], cache_data)
 
@@ -366,7 +375,7 @@ class AnalysisService(BaseService):
 
         # Check cache if enabled
         if use_cache and url and self._cache_service and self._cache_service.is_enabled():
-            cached_result = self._cache_service.get_analysis_result(url, providers)
+            cached_result = self._cache_service.get_analysis_result(url, providers, mode="consensus")
             if cached_result:
                 self.log_info("Cache hit for consensus analysis", providers=providers, url=url[:50])
 
@@ -423,7 +432,7 @@ class AnalysisService(BaseService):
                 self.increment_counter("provider_results", tags={"provider": provider, "status": "failure"})
 
             # Store in cache if enabled and successful
-            if use_cache and url and self._cache_service and self._cache_service.is_enabled() and result.successful_providers:
+            if use_cache and url and self._cache_service and self._cache_service.is_enabled() and result.successful_providers and not result.failed_providers:
                 cache_data = {
                     'sentences': result.sentences,
                     'total_providers': result.total_providers,
@@ -431,7 +440,7 @@ class AnalysisService(BaseService):
                     'failed_providers': result.failed_providers,
                     'total_duration_ms': duration_ms
                 }
-                self._cache_service.set_analysis_result(url, providers, cache_data)
+                self._cache_service.set_analysis_result(url, providers, cache_data, mode="consensus")
 
             # If all providers failed, raise error
             if not result.successful_providers:

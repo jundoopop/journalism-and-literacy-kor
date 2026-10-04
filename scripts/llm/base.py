@@ -176,6 +176,23 @@ class BaseLLMProvider(ABC):
             self.logger.error(f"Unexpected error during JSON parsing: {e}")
             raise JSONParseError(f"Unexpected parsing error: {e}")
 
+    def _validate_sentences(self, sentences, article_text):
+        """Reject fabricated highlights instead of silently counting them as votes."""
+        import re
+        from .exceptions import JSONParseError
+        normalized = re.sub(r"\s+", " ", article_text).strip()
+        if len(sentences) > 5:
+            raise JSONParseError("Expected at most five highlights")
+        seen = set()
+        for sentence, reason in sentences.items():
+            key = re.sub(r"\s+", " ", sentence).strip()
+            if not key or key not in normalized:
+                raise JSONParseError("Highlight is not a verbatim article excerpt")
+            if key in seen or not reason.strip():
+                raise JSONParseError("Duplicate highlight or empty reason")
+            seen.add(key)
+        return sentences
+
     def get_highlight_sentences(self, article_text: str) -> List[str]:
         """
         Extract only sentence list (without reasons)

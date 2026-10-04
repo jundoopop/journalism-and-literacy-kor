@@ -39,7 +39,7 @@ class CacheService(BaseService):
     to no-cache mode if Redis is unavailable.
 
     Cache Key Format:
-        article:{url_hash}:providers:{sorted_providers}:v1
+        article:{url_hash}:providers:{sorted_providers}:mode:{mode}:v3:{configuration_hash}
 
     Example:
         cache = CacheService()
@@ -93,7 +93,7 @@ class CacheService(BaseService):
             self._redis_client = None
             self._enabled = False
 
-    def _generate_cache_key(self, url: str, providers: List[str]) -> str:
+    def _generate_cache_key(self, url: str, providers: List[str], mode: str = "single") -> str:
         """
         Generate a cache key for an article analysis.
 
@@ -105,17 +105,19 @@ class CacheService(BaseService):
             Cache key string
 
         Example:
-            article:a3d8f9:providers:gemini,mistral:v1
+            article:a3d8f9:providers:gemini,mistral:mode:consensus:v3:hash
         """
         # Hash the URL to keep key length manageable
-        url_hash = hashlib.md5(url.encode()).hexdigest()[:8]
+        url_hash = hashlib.sha256(url.encode()).hexdigest()
 
         # Sort providers for consistent cache keys
         sorted_providers = ','.join(sorted(providers))
 
-        return f"article:{url_hash}:providers:{sorted_providers}:v1"
+        from llm.config import configuration_fingerprint
+        fingerprint = configuration_fingerprint(providers)
+        return f"article:{url_hash}:providers:{sorted_providers}:mode:{mode}:v3:{fingerprint}"
 
-    def get_analysis_result(self, url: str, providers: List[str]) -> Optional[Dict[str, Any]]:
+    def get_analysis_result(self, url: str, providers: List[str], mode: str = "single") -> Optional[Dict[str, Any]]:
         """
         Get cached analysis result for an article.
 
@@ -135,7 +137,7 @@ class CacheService(BaseService):
             self._stats["misses"] += 1
             return None
 
-        cache_key = self._generate_cache_key(url, providers)
+        cache_key = self._generate_cache_key(url, providers, mode)
 
         try:
             cached_data = self._redis_client.get(cache_key)
@@ -179,7 +181,8 @@ class CacheService(BaseService):
         url: str,
         providers: List[str],
         analysis_result: Dict[str, Any],
-        ttl: Optional[int] = None
+        ttl: Optional[int] = None,
+        mode: str = "single"
     ) -> bool:
         """
         Cache an analysis result.
@@ -203,7 +206,7 @@ class CacheService(BaseService):
         if not self._enabled or not self._redis_client:
             return False
 
-        cache_key = self._generate_cache_key(url, providers)
+        cache_key = self._generate_cache_key(url, providers, mode)
         ttl = ttl or settings.cache.ttl
 
         try:
@@ -258,7 +261,8 @@ class CacheService(BaseService):
             if providers:
                 # Invalidate specific cache key
                 cache_key = self._generate_cache_key(url, providers)
-                deleted = self._redis_client.delete(cache_key)
+                consensus_key = self._generate_cache_key(url, providers, "consensus")
+                deleted = self._redis_client.delete(cache_key, consensus_key)
 
                 self.log_info(
                     "Cache invalidated",
@@ -270,7 +274,7 @@ class CacheService(BaseService):
 
             else:
                 # Invalidate all variations for this URL
-                url_hash = hashlib.md5(url.encode()).hexdigest()[:8]
+                url_hash = hashlib.sha256(url.encode()).hexdigest()
                 pattern = f"article:{url_hash}:*"
 
                 # Find all matching keys

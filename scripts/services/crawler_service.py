@@ -87,7 +87,7 @@ class CrawlerService(BaseService):
                 # Parse the article
                 parsed = crawler['parse'](url, html)
 
-                if not parsed or 'body_text' not in parsed:
+                if not parsed or not str(parsed.get('body_text', '')).strip():
                     raise CrawlerError(f"Failed to parse article from {url}")
 
             duration_ms = int((time.time() - start_time) * 1000)
@@ -194,7 +194,7 @@ class CrawlerService(BaseService):
         supported_domains = self.get_supported_domains()
 
         for supported in supported_domains:
-            if domain.endswith(supported):
+            if domain == supported or domain.endswith("." + supported):
                 return True
 
         return False

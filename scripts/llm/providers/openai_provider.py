@@ -1,7 +1,7 @@
 """
 OpenAI GPT provider implementation
 
-Uses gpt-5-nano model (NEWEST 2025).
+Uses the configured lightweight model.
 Supports JSON mode for structured output.
 """
 
@@ -23,6 +23,8 @@ class OpenAIProvider(BaseLLMProvider):
             # Initialize OpenAI client
             self.client = OpenAI(
                 api_key=self.config.api_key,
+                timeout=self.config.timeout,
+                max_retries=0,
                 base_url=self.config.base_url  # Allows custom endpoints
             )
 
@@ -52,15 +54,22 @@ class OpenAIProvider(BaseLLMProvider):
 
         try:
             self.logger.debug("Sending request to OpenAI API...")
-            response = self.client.chat.completions.create(
-                model=self.config.model_name,
-                messages=messages,
-                temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens,
-                response_format={"type": "json_object"}  # Enforce JSON output
-            )
-
-            return response.choices[0].message.content
+            options = {"model": self.config.model_name, "messages": messages,
+                       "response_format": {"type": "json_object"}}
+            if self.config.model_name.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4")):
+                options["max_completion_tokens"] = self.config.max_tokens or 2048
+                # The pinned SDK forwards new API fields through extra_body.
+                # Older reasoning models do not support temperature or effort=none.
+                if self.config.model_name.startswith("gpt-6-luna"):
+                    options["extra_body"] = {"reasoning_effort": "none"}
+            else:
+                options.update(temperature=self.config.temperature,
+                               max_tokens=self.config.max_tokens or 2048)
+            response = self.client.chat.completions.create(**options)
+            choice = response.choices[0]
+            if choice.finish_reason != "stop" or not choice.message.content:
+                raise LLMProviderError("OpenAI returned incomplete or refused output")
+            return choice.message.content
 
         except Exception as e:
             self.logger.error(f"OpenAI API call failed: {e}")
@@ -93,7 +102,8 @@ class OpenAIProvider(BaseLLMProvider):
             raw_response = self._call_api(article_text, system_prompt)
 
             # Parse JSON response
-            sentences = self._parse_json_response(raw_response)
+            sentences = self._validate_sentences(
+                self._parse_json_response(raw_response), article_text)
 
             self.logger.info(f"Successfully extracted {len(sentences)} sentences")
 

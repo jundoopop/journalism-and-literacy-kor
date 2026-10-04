@@ -17,24 +17,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Supported providers for consensus analysis
-SUPPORTED_PROVIDERS = ['gemini', 'openai', 'claude', 'mistral']
+SUPPORTED_PROVIDERS = ['gemini', 'openai', 'claude', 'mistral', 'llama']
 
 # Analysis prompt (same as gemini_handler.py for consistency)
-ANALYSIS_PROMPT = """시스템 역할: 당신은 비판적 읽기 훈련 코치이자 언론 분석가입니다.
-주어진 기사 본문에서 **문해력 향상에 도움이 되는 문장**을 선별하고,
-각 문장을 선택한 **이유**를 설명하세요.
-
-출력 형식(JSON):
-{
-  "나는 배고프다": "단문 구조로 명확한 사실 진술을 보여주어 문장 명료성 학습에 유용함.",
-  "정책은 사회적 합의를 필요로 한다": "추상적 개념을 구체적 행위와 연결하여 논리적 사고력 향상에 도움을 줌."
-}
-
-규칙:
-- 기사에서 문해력, 논리적 사고, 비판적 읽기에 기여하는 문장 3~5개를 선택합니다.
-- 이유는 (1) 문체·명료성, (2) 논리 구조, (3) 비판적 사고 유도 중 하나 이상에 근거해야 합니다.
-- JSON 외 다른 텍스트를 출력하지 마세요.
-"""
+from llm.prompts.article_analysis import ARTICLE_ANALYSIS_PROMPT as ANALYSIS_PROMPT
 
 
 class ConsensusAnalyzer:
@@ -49,7 +35,9 @@ class ConsensusAnalyzer:
         Args:
             providers: List of provider names to use (default: ['gemini', 'mistral'])
         """
-        self.providers = providers or ['gemini', 'mistral']
+        self.providers = list(dict.fromkeys(providers if providers is not None else ['gemini', 'mistral']))
+        if not self.providers or any(p not in SUPPORTED_PROVIDERS for p in self.providers):
+            raise ValueError('Select at least one supported provider')
         self.llm_instances = {}
 
         logger.info(f"Initializing ConsensusAnalyzer with providers: {self.providers}")
@@ -96,13 +84,17 @@ class ConsensusAnalyzer:
         """
         try:
             llm = self.llm_instances[provider_name]
-            prompt = f"{ANALYSIS_PROMPT}\n\n기사 본문:\n{article_text}"
 
             logger.info(f"[{provider_name}] Analyzing article...")
-            response = llm.analyze(prompt)
+            response = llm.analyze_article(article_text, ANALYSIS_PROMPT)
 
             # Parse response (expecting JSON dict: {sentence: reason})
-            sentences_dict = response if isinstance(response, dict) else {}
+            sentences_dict = response.sentences
+            if not isinstance(sentences_dict, dict) or any(
+                not isinstance(k, str) or not isinstance(v, str)
+                for k, v in sentences_dict.items()
+            ):
+                raise ValueError("Invalid sentence/reason response")
 
             logger.info(f"[{provider_name}] ✓ Found {len(sentences_dict)} sentences")
 
@@ -154,13 +146,19 @@ class ConsensusAnalyzer:
             return {
                 'success': False,
                 'error': 'Empty article text',
-                'sentences': []
+                'sentences': [],
+                'total_providers': len(self.providers),
+                'successful_providers': [],
+                'failed_providers': list(self.providers),
             }
 
         # Analyze with all providers in parallel
         logger.info(f"Starting parallel analysis with {len(self.llm_instances)} providers")
 
-        results = []
+        results = [
+            {'provider': name, 'success': False, 'sentences': {}, 'error': 'Initialization failed'}
+            for name in self.providers if name not in self.llm_instances
+        ]
         with ThreadPoolExecutor(max_workers=len(self.llm_instances)) as executor:
             futures = {
                 executor.submit(self._analyze_with_provider, name, article_text): name
@@ -196,7 +194,7 @@ class ConsensusAnalyzer:
         Returns:
             Normalized sentence (trimmed whitespace)
         """
-        return sentence.strip()
+        return " ".join(sentence.split())
 
     def _calculate_consensus(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -215,7 +213,10 @@ class ConsensusAnalyzer:
             return {
                 'success': False,
                 'error': 'All providers failed',
-                'sentences': []
+                'sentences': [],
+                'total_providers': len(self.providers),
+                'successful_providers': [],
+                'failed_providers': list(self.providers),
             }
 
         # Build sentence consensus map
@@ -230,7 +231,8 @@ class ConsensusAnalyzer:
 
             for sentence, reason in sentences.items():
                 normalized = self._normalize_sentence(sentence)
-                sentence_map[normalized]['selected_by'].append(provider)
+                if provider not in sentence_map[normalized]['selected_by']:
+                    sentence_map[normalized]['selected_by'].append(provider)
                 sentence_map[normalized]['reasons'][provider] = reason
 
         # Convert to list with consensus scores
@@ -242,7 +244,7 @@ class ConsensusAnalyzer:
 
             # Determine consensus level based on number of providers
             if total_providers == 1:
-                consensus_level = 'high'  # Single provider mode
+                consensus_level = 'insufficient'  # Agreement requires independent providers
             elif total_providers == 2:
                 consensus_level = 'high' if consensus_score == 2 else 'low'
             else:  # 3+ providers
@@ -271,7 +273,7 @@ class ConsensusAnalyzer:
 
         return {
             'success': True,
-            'total_providers': len(self.llm_instances),
+            'total_providers': len(self.providers),
             'successful_providers': [r['provider'] for r in successful_results],
             'failed_providers': [r['provider'] for r in results if not r['success']],
             'sentences': consensus_sentences,

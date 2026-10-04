@@ -6,7 +6,7 @@ metrics in memory and can periodically flush to database.
 """
 
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from threading import Lock
@@ -37,7 +37,7 @@ class MetricsCollector:
 
     def __init__(self):
         self._counters: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
-        self._timings: Dict[str, Dict[str, List[float]]] = defaultdict(lambda: defaultdict(list))
+        self._timings: Dict[str, Dict[str, List[float]]] = defaultdict(lambda: defaultdict(lambda: deque(maxlen=1024)))
         self._gauges: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
         self._lock = Lock()
         self._enabled = True
@@ -240,12 +240,12 @@ class Timer:
         self.start_time = None
 
     def __enter__(self):
-        self.start_time = time.time()
+        self.start_time = time.perf_counter()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.start_time is not None:
-            duration_ms = (time.time() - self.start_time) * 1000
+            duration_ms = (time.perf_counter() - self.start_time) * 1000
             self.collector.timing(self.metric_name, duration_ms, self.tags)
 
 

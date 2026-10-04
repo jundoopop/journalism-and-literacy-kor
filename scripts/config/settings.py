@@ -128,9 +128,9 @@ class Settings(BaseSettings):
     """Main application settings."""
 
     # Flask server settings
-    flask_host: str = Field('0.0.0.0', validation_alias='FLASK_HOST')
+    flask_host: str = Field('127.0.0.1', validation_alias='FLASK_HOST')
     flask_port: int = Field(5001, validation_alias='FLASK_PORT')
-    flask_debug: bool = Field(True, validation_alias='FLASK_DEBUG')
+    flask_debug: bool = Field(False, validation_alias='FLASK_DEBUG')
 
     # Admin authentication
     admin_token: Optional[str] = Field(None, validation_alias='ADMIN_TOKEN', description='Token for admin endpoints')
