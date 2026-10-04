@@ -1,3 +1,9 @@
+> **Maintenance update (2026-10-04):** Development is continuing on the existing
+> news-literacy application. See [maintenance notes](docs/MAINTENANCE_NOTES.md)
+> and [local operation instructions](docs/OPERATIONS.md).
+> Recorded regression and synthetic HTTP results predate the latest model changes;
+> the refreshed integrations, container and hosted CI remain unverified.
+
 # News Literacy Analyzer - Korean Media Analysis Platform
 
 A comprehensive research platform for analyzing Korean news articles using multiple LLM providers, featuring prompt engineering experimentation, consensus analysis, and Chrome extension integration.
@@ -45,10 +51,10 @@ journalism-and-literacy-kor/
 │   │   ├── base.py             # BaseLLMProvider class
 │   │   ├── config.py           # Model defaults
 │   │   └── providers/          # Provider implementations
-│   │       ├── gemini.py       # Google Gemini (gemini-2.5-flash-lite)
-│   │       ├── openai_provider.py  # OpenAI (gpt-5-nano)
-│   │       ├── claude.py       # Anthropic (claude-4.5-haiku)
-│   │       ├── mistral.py      # Mistral (mistral-small-2506)
+│   │       ├── gemini.py       # Google Gemini (gemini-3.5-flash-lite)
+│   │       ├── openai_provider.py  # OpenAI (gpt-6-luna)
+│   │       ├── claude.py       # Anthropic (claude-haiku-4-5-20251001)
+│   │       ├── mistral.py      # Mistral (ministral-8b-2512)
 │   │       └── llama.py        # Meta Llama
 │   │
 │   ├── benchmark/              # 🆕 Prompt evaluation framework
@@ -134,7 +140,7 @@ CLAUDE_API_KEY=your_claude_api_key_here    # Optional
 
 # Consensus Settings (default: gemini + mistral)
 CONSENSUS_ENABLED=True
-CONSENSUS_PROVIDERS=gemini,mistral
+CONSENSUS_PROVIDERS=["gemini","mistral"]
 
 # Flask Server
 FLASK_PORT=5001
@@ -373,14 +379,58 @@ This project includes comprehensive prompt optimization research:
 - JSON compliance improvement: **+6-8%p** (85-91% → 94-97%)
 - Expected PIR: **+35-60%** depending on model size
 
-### Model Comparison
+### Lightweight model candidates (reviewed 2026-10-04)
 
-| Provider | Model                    | Size | JSON Reliability | Speed      | Cost Efficiency |
-|----------|--------------------------|------|------------------|------------|-----------------|
-| OpenAI   | gpt-5-nano               | ~7B  | ⭐⭐⭐⭐⭐ (JSON mode) | Fast       | Lowest tokens   |
-| Mistral  | ministral-3b-2512        | 3B   | ⭐⭐⭐⭐           | Very Fast  | Smallest model  |
-| Gemini   | gemini-2.5-flash-lite    | ~8B  | ⭐⭐⭐⭐⭐         | Very Fast  | Balanced        |
-| Claude   | claude-4.5-haiku         | ~    | ⭐⭐⭐⭐⭐         | Fast       | High quality    |
+| Provider | Default / alternative | Selection basis | Evaluation status |
+|---|---|---|---|
+| Gemini | `gemini-3.5-flash-lite` / `gemini-3.1-flash-lite` | Low-cost extraction model family | Live evaluation pending |
+| OpenAI | `gpt-6-luna` | Current inexpensive, high-volume tier; reasoning disabled for this task | Live evaluation pending |
+| Mistral | `ministral-8b-2512` / `ministral-3b-2512` | Explicit 8B / 3B sizes | Live evaluation pending |
+| Claude | `claude-haiku-4-5-20251001` | Correct pinned ID for the small Claude tier | Live evaluation pending |
+| Llama | `meta-llama/Llama-3.1-8B-Instruct` | Legacy adapter retained | Hosted availability unverified |
+
+Closed-model parameter counts and Korean quality scores are not published here without evidence.
+A smaller API price or a newer release does not prove better extraction quality.
+
+Official references: [Gemini](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite),
+[OpenAI](https://developers.openai.com/api/docs/models/gpt-6-luna),
+[Ministral 8B](https://docs.mistral.ai/models/ministral-3-8b-25-12),
+[Ministral 3B](https://docs.mistral.ai/models/ministral-3-3b-25-12),
+[Claude](https://platform.claude.com/docs/en/models/haiku-4-5/overview).
+
+#### What changed
+
+| Before | Implemented locally; runtime evaluation pending |
+|---|---|
+| Single analysis forced Gemini; extension exposed three providers | Single and consensus selection exposes all five existing providers |
+| Gemini single path ignored central model settings | Native host and HTTP single analysis use the same configured adapter |
+| Invalid Claude ID; dated defaults | Lightweight defaults and alternative model IDs above |
+| Gemini process-global SDK credentials | REST requests with per-request credentials and JSON output mode |
+| OpenAI always sent temperature and max_tokens | Reasoning models use max_completion_tokens; Luna explicitly uses effort=none |
+| Mistral free-form output | JSON mode and a default 2,048-token output cap |
+| JSON object could contain invented highlights | Every adapter rejects non-source excerpts, blank reasons and >5 highlights |
+| URL/provider cache could survive a model change | Server and extension cache identity includes model, prompt and generation settings |
+
+JSON mode does not prove that a selection is useful. Source validation accepts whitespace
+normalization; it does not assess whether the selected passage is a complete or educational sentence.
+OpenAI, Gemini and Claude blocked/truncated output, and Mistral truncated output, fail explicitly.
+No paid retries or fallback model calls were added.
+
+#### Reproducible comparison method
+
+Use a fixed set of 20 Korean articles across news domains, lengths and topics, saved locally
+with article hashes. Include short articles, quoted speech and instruction-like article text.
+For each candidate run each article three times, with the same prompt, output cap and timeout,
+and with caches disabled. Record the exact model ID, prompt hash, JSON validity, source-excerpt
+validity, selected count, failure category, per-request latency and API-reported input/output
+usage. Report both failure rate and p50/p95 latency; never discard failed requests from totals.
+Keep actual billable usage distinct from the service's existing estimated-token metrics.
+
+Blind-review each reason for relevance, fidelity to the article and usefulness for critical
+reading (0–2 each). Compare cost per accepted analysis, including failures, using current
+provider billing rates. Select the cheapest candidate that meets the agreed quality target;
+use two-provider consensus only where its measured benefit justifies the extra calls.
+This is an evaluation protocol, not a completed experiment or a model ranking.
 
 See [prompts/README.md](prompts/README.md) for complete prompt engineering documentation.
 
@@ -509,21 +559,28 @@ Generates `data/crawler_validation_report.json` with:
 
 ### LLM Provider Settings
 
-Each provider can be customized in `scripts/llm/config.py`:
+Set the relevant values in the project-root `.env`, then restart the server:
 
-```python
-DEFAULT_MODELS = {
-    'gemini': "gemini-2.5-flash-lite",
-    'openai': "gpt-5-nano",
-    'claude': "claude-4.5-haiku",
-    'mistral': "mistral-small-2506",
-    'llama': "meta-llama/Llama-3.1-8B-Instruct"
-}
-
-DEFAULT_TEMPERATURE = 0.2  # Low temp for consistent outputs
-DEFAULT_TIMEOUT = 40       # API call timeout (seconds)
-DEFAULT_MAX_RETRIES = 3    # Retry failed API calls
+```dotenv
+GEMINI_MODEL=gemini-3.5-flash-lite
+OPENAI_MODEL=gpt-6-luna
+MISTRAL_MODEL=ministral-8b-2512
+CLAUDE_MODEL=claude-haiku-4-5-20251001
+LLM_MAX_TOKENS=2048
+LLM_TIMEOUT=40
 ```
+
+For the smallest Mistral candidate set `MISTRAL_MODEL=ministral-3b-2512`.
+API keys stay on the server (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `MISTRAL_API_KEY`,
+`CLAUDE_API_KEY`, or legacy `LLAMA_API_KEY`). Existing environment values override defaults;
+updating source code alone does not replace an old `.env` model name.
+Reload the extension after updating its files, then choose one provider in single mode or at
+least two in consensus mode. Only one model per provider participates in a consensus request;
+compare the 3B and 8B alternatives in separate runs. `GET /models` shows configured IDs and
+alternatives without sending a paid request. It does not verify account access to those models.
+`POST /analyze` accepts `{"url": "https://www.hani.co.kr/...", "provider": "mistral"}` and
+returns the provider and model ID. Actual model availability requires a successful live call.
+The extension bypasses its cache if it cannot obtain the server's configuration identity.
 
 ### Cache Configuration
 
