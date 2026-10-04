@@ -63,3 +63,16 @@ def test_bounds_decompressed_response_size(monkeypatch):
     with pytest.raises(ValueError, match="maximum download size"):
         safety.fetch_news_html("https://www.hani.co.kr/a")
     pool.close.assert_called_once()
+
+
+def test_deadline_expired_during_dns_stops_before_connecting(monkeypatch):
+    clock = iter([10.0, 41.0])
+    monkeypatch.setattr(safety.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(safety, "public_address", lambda host: "93.184.216.34")
+    pool_factory = Mock()
+    monkeypatch.setattr(safety.urllib3, "HTTPSConnectionPool", pool_factory)
+
+    with pytest.raises(TimeoutError, match="deadline"):
+        safety.fetch_news_html("https://www.hani.co.kr/a")
+
+    pool_factory.assert_not_called()
