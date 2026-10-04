@@ -26,8 +26,9 @@ Use JSON for lists, for example `CONSENSUS_PROVIDERS=["gemini","mistral"]`.
 The default listener is 127.0.0.1:5001, with debug disabled. Only extension origins
 are accepted for browser-originated requests. Requests without Origin are allowed
 for local scripts. This is not an authentication mechanism for a public deployment.
-The single-provider route uses Gemini; the consensus route accepts the supported
-provider list. UI health uses the selected providers.
+The single-provider route accepts a supported provider (Gemini by default);
+the consensus route accepts a provider list. UI health uses the selected providers.
+`GET /models` reports configured model IDs and the cache configuration fingerprint.
 
 ## Containers
 
@@ -85,10 +86,13 @@ real provider latency. Do not choose a production budget from the synthetic fixt
 
 ## Reproduce checks
 
+The recorded passes predate the model refresh. The current revision needs a fresh
+verification pass. Write new benchmark output separately from historical records.
+
 ```sh
 .venv/bin/python -m pytest tests
 node --test tests/extension.test.cjs
-.venv/bin/python benchmarks/http_load.py --output benchmarks/records/local-http.json
+.venv/bin/python benchmarks/http_load.py --output /tmp/news-literacy-http.json
 ```
 
 The benchmark launches Gunicorn itself and cleans up its child processes and
@@ -118,8 +122,8 @@ with one HTTP thread, not the original broken server.
 | Redis unavailable | Cache health and connection logs | Analysis runs uncached; recovery currently requires process restart |
 | Shutdown drops requests | Stop grace period, provider duration | Ensure platform stop grace exceeds Gunicorn graceful timeout |
 
-SDK timeouts are explicit; OpenAI/Claude automatic retries are disabled, and Gemini
-uses no SDK retry. These are not a universal end-to-end cancellation guarantee.
+Provider timeouts are explicit; OpenAI/Claude automatic retries are disabled, and
+Gemini uses direct REST requests without an automatic retry loop. These are not a universal end-to-end cancellation guarantee.
 Blocking DNS and provider SDK behavior still need live/fault-injection validation.
 The extension's 90-second timeout cancels its wait, not server execution.
 
