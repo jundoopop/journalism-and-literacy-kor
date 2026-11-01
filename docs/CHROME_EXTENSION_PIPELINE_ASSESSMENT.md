@@ -292,3 +292,8 @@ The program has strong internals and clear separation, but quality currently dep
 - [x] Extension health check updated to support both legacy and v2+ health schemas.
 - [ ] Add endpoint contract tests for `/health`, `/analyze`, `/analyze_consensus`.
 - [ ] Publish migration/deprecation notice for legacy health fields.
+
+### Sprint 2 (In Progress)
+- [x] Extension settings provider list aligned with backend-supported providers (OpenAI, Claude, Mistral, Llama + required Gemini).
+- [ ] Add provider readiness badges based on backend health response.
+- [ ] Update user-facing README screenshots/text for the new provider options.
