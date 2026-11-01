@@ -457,6 +457,47 @@ Requires `X-Admin-Token` header.
 
 ## 🧰 Development & Testing
 
+### Verification Status
+
+The validation status below distinguishes automated CI coverage from checks that
+require real provider credentials or a human-operated Chrome session.
+
+#### Confirmed by hosted CI
+
+On **October 4, 2026**, [PR #2](https://github.com/jundoopop/journalism-and-literacy-kor/pull/2)
+was merged. Its associated [GitHub Actions run #37233075554](https://github.com/jundoopop/journalism-and-literacy-kor/actions/runs/37233075554)
+completed successfully with both jobs passing:
+
+- **`regression`**: the Python test suite and JavaScript Chrome extension tests
+  passed.
+- **`container`**: the Docker image was built, the service was started, its
+  health check passed, and the service was shut down successfully.
+
+These results supersede earlier notes saying that tests had not been rerun after
+the model changes or that hosted CI/container verification had not been
+performed. They demonstrate automated regression and container smoke coverage
+for the revision exercised by that workflow run.
+
+#### Not confirmed by that CI run
+
+The successful workflow does **not**, by itself, establish the following:
+
+- The quality or correctness of analysis returned by live external LLM APIs.
+- End-to-end behavior with real Gemini, OpenAI, Anthropic, Mistral, or Llama
+  credentials and current provider services.
+- Manual loading and operation of the unpacked extension in Chrome on supported
+  news sites, including highlighting, tooltips, popup controls, and settings.
+- Live crawling reliability against current publisher pages or anti-bot
+  behavior.
+
+Run `python scripts/test_api_connection.py` with explicitly configured test
+credentials for live provider connectivity, and complete a separate manual
+Chrome acceptance pass for browser behavior. Do not describe either check as
+complete solely because the credential-free regression and container jobs pass.
+
+See [docs/MAINTENANCE_NOTES.md](docs/MAINTENANCE_NOTES.md) for the evidence,
+scope, and remaining verification checklist.
+
 ### Running Tests
 
 ```bash
@@ -575,6 +616,7 @@ Built-in logging and metrics:
 
 ### Detailed Guides
 
+- **[docs/MAINTENANCE_NOTES.md](docs/MAINTENANCE_NOTES.md)**: Verified CI scope and outstanding live/manual checks
 - **[docs/PIPELINE_FLOW.md](docs/PIPELINE_FLOW.md)**: Complete architecture (1500+ lines)
 - **[docs/API_CONNECTION_GUIDE.md](docs/API_CONNECTION_GUIDE.md)**: API key setup & troubleshooting
 - **[docs/MISTRAL_SETUP.md](docs/MISTRAL_SETUP.md)**: Mistral API configuration
@@ -755,6 +797,6 @@ If you use this platform for research, please cite:
 
 ---
 
-**Last Updated**: 2025-12-30
+**Last Updated**: 2026-11-01
 **Version**: 2.0.0
-**Status**: Production-ready with active research development
+**Status**: Automated regression and container checks pass; live LLM quality and manual Chrome behavior require separate validation

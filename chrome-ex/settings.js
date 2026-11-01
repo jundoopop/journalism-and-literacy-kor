@@ -7,8 +7,10 @@
 const singleModeRadio = document.getElementById('singleMode');
 const consensusModeRadio = document.getElementById('consensusMode');
 const geminiCheckbox = document.getElementById('gemini');
-const openaiCheckbox = document.getElementById('openai');
-const claudeCheckbox = document.getElementById('claude');
+const OPTIONAL_PROVIDER_IDS = ['openai', 'claude', 'mistral', 'llama'];
+const optionalProviderCheckboxes = OPTIONAL_PROVIDER_IDS
+  .map((id) => document.getElementById(id))
+  .filter((element) => element);
 const providerSection = document.getElementById('providerSection');
 const colorLegend = document.getElementById('colorLegend');
 const saveBtn = document.getElementById('saveBtn');
@@ -73,30 +75,25 @@ async function saveSettings(settings) {
 function updateUIState() {
   const isSingleMode = singleModeRadio.checked;
 
-  // In single mode, disable provider checkboxes (except Gemini)
+  // In single mode, disable optional provider checkboxes (Gemini is always enabled)
   if (isSingleMode) {
-    openaiCheckbox.disabled = true;
-    claudeCheckbox.disabled = true;
-    openaiCheckbox.checked = false;
-    claudeCheckbox.checked = false;
+    optionalProviderCheckboxes.forEach((checkbox) => {
+      checkbox.disabled = true;
+      checkbox.checked = false;
+      checkbox.parentElement.classList.add('disabled');
+    });
 
     // Hide color legend in single mode
     colorLegend.style.display = 'none';
-
-    // Grey out provider section
-    openaiCheckbox.parentElement.classList.add('disabled');
-    claudeCheckbox.parentElement.classList.add('disabled');
   } else {
-    // Consensus mode: enable provider selection
-    openaiCheckbox.disabled = false;
-    claudeCheckbox.disabled = false;
+    // Consensus mode: enable provider selection for optional providers
+    optionalProviderCheckboxes.forEach((checkbox) => {
+      checkbox.disabled = false;
+      checkbox.parentElement.classList.remove('disabled');
+    });
 
     // Show color legend
     colorLegend.style.display = 'block';
-
-    // Remove grey out
-    openaiCheckbox.parentElement.classList.remove('disabled');
-    claudeCheckbox.parentElement.classList.remove('disabled');
   }
 }
 
@@ -115,8 +112,9 @@ function applySettingsToUI(settings) {
   const providers = settings.providers || ['gemini'];
 
   geminiCheckbox.checked = true; // Always checked and disabled
-  openaiCheckbox.checked = providers.includes('openai');
-  claudeCheckbox.checked = providers.includes('claude');
+  optionalProviderCheckboxes.forEach((checkbox) => {
+    checkbox.checked = providers.includes(checkbox.value);
+  });
 
   // Update UI state
   updateUIState();
@@ -131,8 +129,9 @@ function getSettingsFromUI() {
   const providers = ['gemini']; // Gemini is always included
 
   if (mode === 'consensus') {
-    if (openaiCheckbox.checked) providers.push('openai');
-    if (claudeCheckbox.checked) providers.push('claude');
+    optionalProviderCheckboxes.forEach((checkbox) => {
+      if (checkbox.checked) providers.push(checkbox.value);
+    });
   }
 
   return { mode, providers };

@@ -124,7 +124,22 @@ def health_check():
         JSON response with detailed system health
     """
     system_health = health_service.get_system_health()
-    return jsonify(system_health)
+
+    # Backward-compatible health contract for extension clients.
+    # New clients should rely on `overall_status` and `components`.
+    overall_status = system_health.get("overall_status", "unhealthy")
+    llm_providers = system_health.get("components", {}).get("llm_providers", {})
+    gemini_status = llm_providers.get("gemini", {}).get("status")
+
+    compatibility_status = "ok" if overall_status in ["healthy", "degraded"] else "error"
+
+    return jsonify({
+        **system_health,
+        "api_version": "2.1",
+        # Legacy fields kept during migration window.
+        "status": compatibility_status,
+        "gemini_ready": gemini_status == "up"
+    })
 
 
 @app.route('/test', methods=['GET'])

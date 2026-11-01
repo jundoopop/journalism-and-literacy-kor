@@ -135,6 +135,16 @@ async function checkServerHealth() {
     }
 
     const result = await response.json();
+
+    // v2+ contract: use overall status and provider component health
+    if (result.overall_status) {
+      const overallHealthy = ['healthy', 'degraded'].includes(result.overall_status);
+      const geminiStatus = result.components?.llm_providers?.gemini?.status;
+      const geminiReady = geminiStatus === 'up' || result.gemini_ready === true;
+      return overallHealthy && geminiReady;
+    }
+
+    // Legacy contract fallback
     return result.status === 'ok' && result.gemini_ready;
 
   } catch (error) {
