@@ -9,7 +9,7 @@ from crawlers.registry import CrawlerRegistry
 
 
 @pytest.fixture
-def setup_services( temp_database, monkeypatch):
+def setup_services(temp_database, monkeypatch, mock_redis_client):
     """Setup all required services."""
     monkeypatch.setenv("DATABASE_PATH", temp_database)
 
@@ -17,6 +17,8 @@ def setup_services( temp_database, monkeypatch):
     init_database()
 
     cache_service = CacheService()
+    cache_service._redis_client = mock_redis_client
+    cache_service._enabled = True
     analysis_service = AnalysisService(cache_service=cache_service)
     feature_flags = FeatureFlagsService()
     crawler_registry = CrawlerRegistry()
@@ -76,15 +78,12 @@ class TestAnalysisWorkflow:
         }
 
         # Store in cache
-        services['cache'].set_analysis_result(url, providers, test_result)
+        assert services['cache'].set_analysis_result(url, providers, test_result) is True
 
         # Retrieve from cache
         cached = services['cache'].get_analysis_result(url, providers)
 
-        # Should retrieve successfully (if Redis available)
-        if services['cache'].is_enabled():
-            assert cached is not None
-            assert cached['headline'] == 'Test'
+        assert cached == test_result
 
     def test_database_logging_integration(self, setup_services):
         """Test that all operations are logged to database."""
@@ -111,15 +110,24 @@ class TestAnalysisWorkflow:
         assert recent[0].correlation_id == "integration_test"
         session.close()
 
-    def test_error_handling_across_services(self, setup_services):
+    def test_error_handling_across_services(self, setup_services, monkeypatch):
         """Test error handling in service integration."""
         services = setup_services
 
-        # Test with invalid URL
-        url = "not-a-valid-url"
+        from services import CrawlerService
+        from services.crawler_service import CrawlerError
+        from llm.exceptions import APIKeyError
+        from services.analysis_service import AnalysisError
 
-        # Should not crash, should handle gracefully
-        # (Actual behavior depends on implementation)
+        crawler = CrawlerService()
+        with pytest.raises(CrawlerError, match='Failed to crawl article'):
+            crawler.crawl_article('not-a-valid-url')
+
+        def unavailable():
+            raise APIKeyError('fixture missing key')
+        monkeypatch.setattr(services['analysis'], '_get_gemini_analyzer', unavailable)
+        with pytest.raises(AnalysisError, match='Analysis failed with provider gemini'):
+            services['analysis'].analyze_single('기사 본문', use_cache=False)
 
 
 class TestPromptExperimentIntegration:
@@ -280,7 +288,8 @@ class TestEndToEndWorkflow:
             "headline": result.headline
         }
 
-        services['cache'].set_analysis_result(url, ["gemini"], analysis_result)
+        assert services['cache'].set_analysis_result(url, ["gemini"], analysis_result) is True
+        assert services['cache'].get_analysis_result(url, ["gemini"]) == analysis_result
 
         # Step 5: Verify logged to database
         from database import AnalyticsRepository

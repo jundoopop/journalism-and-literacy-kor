@@ -5,6 +5,7 @@ Analyzes articles using multiple LLM providers and calculates consensus scores
 
 import os
 import logging
+from time import perf_counter
 from typing import List, Dict, Optional, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
@@ -82,6 +83,7 @@ class ConsensusAnalyzer:
         Returns:
             Dict with provider name, sentences, and success status
         """
+        started = perf_counter()
         try:
             llm = self.llm_instances[provider_name]
 
@@ -102,7 +104,9 @@ class ConsensusAnalyzer:
                 'provider': provider_name,
                 'success': True,
                 'sentences': sentences_dict,
-                'error': None
+                'error': None,
+                'duration_ms': int((perf_counter() - started) * 1000),
+                'model': response.model,
             }
 
         except Exception as e:
@@ -111,7 +115,9 @@ class ConsensusAnalyzer:
                 'provider': provider_name,
                 'success': False,
                 'sentences': {},
-                'error': str(e)
+                'error': str(e),
+                'error_type': type(e).__name__,
+                'duration_ms': int((perf_counter() - started) * 1000),
             }
 
     def analyze_article(self, article_text: str) -> Dict[str, Any]:
@@ -206,6 +212,17 @@ class ConsensusAnalyzer:
         Returns:
             Consensus data structure
         """
+        provider_metrics = {
+            result['provider']: {
+                'success': result['success'],
+                'duration_ms': result.get('duration_ms'),
+                'sentence_count': len(result['sentences']),
+                'model': result.get('model'),
+                'error': result.get('error'),
+                'error_type': result.get('error_type'),
+            }
+            for result in results
+        }
         successful_results = [r for r in results if r['success']]
 
         if not successful_results:
@@ -217,6 +234,7 @@ class ConsensusAnalyzer:
                 'total_providers': len(self.providers),
                 'successful_providers': [],
                 'failed_providers': list(self.providers),
+                'provider_metrics': provider_metrics,
             }
 
         # Build sentence consensus map
@@ -276,6 +294,7 @@ class ConsensusAnalyzer:
             'total_providers': len(self.providers),
             'successful_providers': [r['provider'] for r in successful_results],
             'failed_providers': [r['provider'] for r in results if not r['success']],
+            'provider_metrics': provider_metrics,
             'sentences': consensus_sentences,
             'count': len(consensus_sentences)
         }

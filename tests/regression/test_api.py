@@ -102,3 +102,51 @@ def test_actual_consensus_route_handles_one_failed_model(api, monkeypatch):
     assert body["total_providers"] == 2
     assert body["failed_providers"] == ["mistral"]
     assert body["sentences"][0]["consensus_level"] == "insufficient"
+
+
+@pytest.mark.parametrize("failures", [(), ("mistral",), ("gemini", "mistral")])
+def test_consensus_route_persists_measured_provider_outcomes(api, monkeypatch, measured_providers, failures):
+    server, client, _ = api
+    from database import session_scope
+    from database.models import AnalysisResult
+    from services.crawler_service import ArticleData
+
+    measured_providers(failures)
+    monkeypatch.setattr(server.crawler_service, "crawl_article", lambda url: ArticleData(url, "News", "첫 문장. 둘째 문장.", {}))
+    response = client.post("/analyze_consensus", json={
+        "url": "https://www.hani.co.kr/a", "providers": ["gemini", "mistral"],
+    })
+    assert response.status_code == (500 if len(failures) == 2 else 200)
+    with session_scope() as session:
+        rows = {row.provider: row for row in session.query(AnalysisResult).all()}
+        assert set(rows) == {"gemini", "mistral"}
+        for provider, duration, count in [("gemini", 125, 1), ("mistral", 875, 2)]:
+            assert rows[provider].latency_ms == duration
+            assert rows[provider].sentence_count == (0 if provider in failures else count)
+            assert rows[provider].success == (provider not in failures)
+
+
+def test_consensus_cache_hit_does_not_create_provider_latency_samples(api, monkeypatch):
+    server, client, _ = api
+    from database import session_scope
+    from database.models import AnalysisResult
+    from services.crawler_service import ArticleData
+
+    cache = Mock()
+    cache.is_enabled.return_value = True
+    cache.get_analysis_result.return_value = {
+        "sentences": [], "total_providers": 2,
+        "successful_providers": ["gemini", "mistral"], "failed_providers": [],
+        "total_duration_ms": 1000,
+    }
+    monkeypatch.setattr(server.analysis_service, "_cache_service", cache)
+    monkeypatch.setattr(server.crawler_service, "crawl_article", lambda url: ArticleData(url, "News", "문장", {}))
+    outbound = Mock(side_effect=AssertionError("Cache hits must not call providers"))
+    monkeypatch.setattr(server.analysis_service, "_get_consensus_analyzer", outbound)
+    response = client.post("/analyze_consensus", json={
+        "url": "https://www.hani.co.kr/a", "providers": ["gemini", "mistral"],
+    })
+    assert response.status_code == 200
+    outbound.assert_not_called()
+    with session_scope() as session:
+        assert session.query(AnalysisResult).count() == 0

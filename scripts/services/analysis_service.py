@@ -33,6 +33,8 @@ class ConsensusResult:
     successful_providers: List[str]
     failed_providers: List[str] = field(default_factory=list)
     total_duration_ms: Optional[int] = None
+    # Only calls made for this request; cache hits leave this empty.
+    provider_metrics: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
 
 class AnalysisError(ServiceError):
@@ -399,7 +401,8 @@ class AnalysisService(BaseService):
                 total_providers=consensus_data.get('total_providers', len(providers)),
                 successful_providers=consensus_data.get('successful_providers', []),
                 failed_providers=consensus_data.get('failed_providers', []),
-                total_duration_ms=duration_ms
+                total_duration_ms=duration_ms,
+                provider_metrics=consensus_data.get('provider_metrics', {}),
             )
 
             token_usage = {}
@@ -419,8 +422,11 @@ class AnalysisService(BaseService):
                 **token_usage
             )
 
-            # Track success metrics
-            self.increment_counter("analysis_success", tags={"mode": "consensus"})
+            # Track the actual outcome, including complete provider failure.
+            self.increment_counter(
+                "analysis_success" if result.successful_providers else "analysis_failures",
+                tags={"mode": "consensus"},
+            )
             self.track_metric("sentence_count", len(result.sentences), tags={"mode": "consensus"})
             self.track_metric("provider_success_rate", len(result.successful_providers) / result.total_providers, tags={"mode": "consensus"})
 
@@ -448,7 +454,8 @@ class AnalysisService(BaseService):
                     "All LLM providers failed during consensus analysis",
                     details={
                         'providers': providers,
-                        'failed_providers': result.failed_providers
+                        'failed_providers': result.failed_providers,
+                        'provider_metrics': result.provider_metrics,
                     }
                 )
 
