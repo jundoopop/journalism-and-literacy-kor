@@ -35,7 +35,7 @@ class TestPromptManager:
         for template in templates:
             assert 'name' in template
             assert 'version' in template
-            assert 'file_path' in template
+            assert 'variables' in template
 
     def test_get_prompt_with_default_version(self, manager):
         """Test getting prompt with default version."""
@@ -115,8 +115,8 @@ class TestPromptManager:
         template = PromptTemplate(
             name="test_template",
             version="v1",
-            file_path=Path("/tmp/test.txt"),
-            content="Test prompt: {{ variable }}"
+            template="Test prompt: {variable}",
+            variables=["variable"]
         )
 
         assert template.name == "test_template"
@@ -191,7 +191,7 @@ class TestPromptManager:
 
     def test_get_prompt_nonexistent_template(self, manager):
         """Test getting non-existent template."""
-        with pytest.raises(KeyError):
+        with pytest.raises(ValueError):
             manager.get_prompt('nonexistent_template')
 
     def test_template_file_loading(self, manager):
@@ -202,9 +202,9 @@ class TestPromptManager:
 
         for version, template in templates.items():
             assert isinstance(template, PromptTemplate)
-            assert template.content is not None
-            assert len(template.content) > 0
-            assert template.file_path.exists()
+            assert template.template is not None
+            assert len(template.template) > 0
+            assert (manager.prompts_dir / f'article_analysis_{version}.txt').exists()
 
     def test_experiment_config_loading(self, manager):
         """Test that experiment configurations are loaded correctly."""
@@ -212,7 +212,7 @@ class TestPromptManager:
         experiments = manager._experiments
 
         for exp_name, config in experiments.items():
-            assert isinstance(config, ExperimentConfig)
+            assert isinstance(config, PromptExperiment)
             assert config.name == exp_name
             assert hasattr(config, 'active')
             assert hasattr(config, 'variants')

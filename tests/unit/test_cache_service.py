@@ -107,7 +107,7 @@ class TestCacheService:
         mock_redis_class.return_value = mock_client
 
         service = CacheService()
-        service._redis = mock_client
+        service._redis_client = mock_client
         service._enabled = True
 
         # Test data
@@ -136,7 +136,7 @@ class TestCacheService:
         mock_redis_class.return_value = mock_client
 
         service = CacheService()
-        service._redis = mock_client
+        service._redis_client = mock_client
         service._enabled = True
 
         initial_stats = service.get_stats()
@@ -159,7 +159,7 @@ class TestCacheService:
         mock_redis_class.return_value = mock_client
 
         service = CacheService()
-        service._redis = mock_client
+        service._redis_client = mock_client
         service._enabled = True
 
         url = "https://test.com/article"

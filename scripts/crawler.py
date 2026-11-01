@@ -15,10 +15,10 @@ from config import ensure_dir
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; W1-Starter/1.0)"}
 
 
-def extract_main_html(url: str):
-    r = requests.get(url, headers=HEADERS, timeout=30)
-    r.raise_for_status()
-    html = r.text
+def extract_main_html(url: str, html: str = None):
+    if html is None:
+        from url_safety import fetch_news_html
+        html = fetch_news_html(url)
     # Readability 우선 → 실패 시 수동 파싱
     try:
         doc = Document(html)

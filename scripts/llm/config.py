@@ -10,13 +10,14 @@ from typing import Optional
 from .base import LLMProvider, LLMConfig
 
 
-# Default model names for each provider (NEWEST 2025 LIGHTWEIGHT MODELS)
+# Lightweight defaults reviewed against official catalogs on 2026-10-04.
+# API availability and Korean extraction quality still require live evaluation.
 DEFAULT_MODELS = {
-    LLMProvider.GEMINI: "gemini-2.5-flash-lite",
-    LLMProvider.OPENAI: "gpt-5-nano",
-    LLMProvider.CLAUDE: "claude-4.5-haiku",
+    LLMProvider.GEMINI: "gemini-3.5-flash-lite",
+    LLMProvider.OPENAI: "gpt-6-luna",
+    LLMProvider.CLAUDE: "claude-haiku-4-5-20251001",
     LLMProvider.LLAMA: "meta-llama/Llama-3.1-8B-Instruct",
-    LLMProvider.MISTRAL: "mistral-small-2506"
+    LLMProvider.MISTRAL: "ministral-8b-2512"
 }
 
 # Default base URLs for providers that need them
@@ -45,7 +46,10 @@ def get_default_config(provider: LLMProvider, api_key: str = "") -> LLMConfig:
     temperature = float(os.getenv("LLM_TEMPERATURE", "0.2"))
 
     max_tokens_env = os.getenv("LLM_MAX_TOKENS")
-    max_tokens = int(max_tokens_env) if max_tokens_env else None
+    max_tokens = int(max_tokens_env) if max_tokens_env else 2048
+
+    if max_tokens <= 0:
+        raise ValueError("LLM_MAX_TOKENS must be positive")
 
     timeout = int(os.getenv("LLM_TIMEOUT", "40"))
     max_retries = int(os.getenv("LLM_MAX_RETRIES", "3"))
@@ -76,3 +80,26 @@ def get_provider_from_env() -> str:
         Provider name (default: "gemini")
     """
     return os.getenv("LLM_PROVIDER", "gemini")
+
+
+# Alternatives use the same adapter; select via PROVIDER_MODEL in .env.
+MODEL_OPTIONS = {
+    "gemini": ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"],
+    "openai": ["gpt-6-luna"],
+    "claude": ["claude-haiku-4-5-20251001"],
+    "mistral": ["ministral-3b-2512", "ministral-8b-2512"],
+    # Legacy compatibility only; hosted availability not verified.
+    "llama": ["meta-llama/Llama-3.1-8B-Instruct"],
+}
+
+def configuration_fingerprint(providers):
+    """Cache identity without API keys, including prompt and generation settings."""
+    import hashlib
+    import json
+    from .prompts.article_analysis import ARTICLE_ANALYSIS_PROMPT
+    configs = []
+    for name in sorted(providers):
+        config = get_default_config(LLMProvider(name))
+        configs.append((name, config.model_name, config.temperature, config.max_tokens, config.base_url))
+    value = json.dumps([configs, ARTICLE_ANALYSIS_PROMPT], ensure_ascii=False)
+    return hashlib.sha256(value.encode()).hexdigest()[:16]

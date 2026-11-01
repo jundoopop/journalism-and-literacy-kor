@@ -1,12 +1,31 @@
-version: '3.8'
-
 services:
+  api:
+    build: .
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5001:5001"
+    env_file: .env
+    environment:
+      BIND: "0.0.0.0:5001"
+      FLASK_DEBUG: "False"
+      REDIS_HOST: redis
+      DATABASE_PATH: /app/data/analytics.db
+      LOG_DIR: /app/data/logs
+    volumes:
+      - app-data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    stop_grace_period: 95s
+    networks:
+      - news-literacy
   redis:
     image: redis:7-alpine
     container_name: news-literacy-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     command: >
       redis-server
       --appendonly yes
@@ -26,6 +45,7 @@ services:
       start_period: 5s
 
 volumes:
+  app-data:
   redis-data:
     driver: local
 

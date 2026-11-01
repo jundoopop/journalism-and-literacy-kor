@@ -7,6 +7,7 @@
 const CONFIG = {
   // Consensus-based color scheme
   COLORS: {
+    insufficient: { bg: "#ddd", opacity: 0.6, text: "#111" },
     high: { bg: "#00ff00", opacity: 0.6, text: "#111" },    // Green - all models agree
     medium: { bg: "#ffff00", opacity: 0.5, text: "#111" },  // Yellow - 2 models
     low: { bg: "#87ceeb", opacity: 0.4, text: "#111" }      // Sky blue - 1 model
@@ -97,12 +98,14 @@ class TooltipManager {
 
   buildTooltipContent(metadata) {
     const levelColors = {
+      insufficient: '#777',
       high: '#4CAF50',
       medium: '#FFC107',
       low: '#2196F3'
     };
 
     const levelLabels = {
+      insufficient: '합의 판단 불가 · 모델 1개',
       high: '높은 합의',
       medium: '중간 합의',
       low: '낮은 합의'
@@ -116,8 +119,8 @@ class TooltipManager {
     };
 
     const consensusLevel = metadata.consensus_level || 'medium';
-    const color = levelColors[consensusLevel];
-    const label = levelLabels[consensusLevel];
+    const color = levelColors[consensusLevel] || levelColors.insufficient;
+    const label = levelLabels[consensusLevel] || levelLabels.insufficient;
 
     let html = '';
 
@@ -129,7 +132,7 @@ class TooltipManager {
             ${label}
           </div>
           <div style="font-size: 12px; color: #666;">
-            ${metadata.consensus_score}개 모델 선택
+            ${escapeHTML(metadata.consensus_score)}개 모델 선택
           </div>
         </div>
       `;
@@ -142,7 +145,7 @@ class TooltipManager {
         const icon = providerIcons[provider] || '🤖';
         html += `
           <span style="display: inline-block; background: #f5f5f5; padding: 3px 8px; border-radius: 3px; margin-right: 4px; font-size: 11px;">
-            ${icon} ${provider}
+            ${icon} ${escapeHTML(provider)}
           </span>
         `;
       });
@@ -158,10 +161,10 @@ class TooltipManager {
           html += `
             <div style="margin-bottom: 8px; padding: 8px; background: #f9f9f9; border-radius: 4px; border-left: 3px solid ${color};">
               <div style="font-weight: 600; font-size: 11px; color: #667eea; margin-bottom: 4px;">
-                ${icon} ${provider.toUpperCase()}
+                ${icon} ${escapeHTML(provider.toUpperCase())}
               </div>
               <div style="font-size: 12px; color: #555; line-height: 1.4;">
-                ${reason}
+                ${escapeHTML(reason)}
               </div>
             </div>
           `;
@@ -180,7 +183,7 @@ class TooltipManager {
             ${providerIcon} 선택 이유
           </div>
           <div style="font-size: 13px; color: #555; line-height: 1.5;">
-            ${reason}
+            ${escapeHTML(reason)}
           </div>
         </div>
       `;
@@ -393,7 +396,7 @@ function createHighlightMark(text, metadata) {
 
   // Apply consensus-based color
   const consensusLevel = metadata.consensus_level || 'medium';
-  const colors = CONFIG.COLORS[consensusLevel];
+  const colors = CONFIG.COLORS[consensusLevel] || CONFIG.COLORS.insufficient;
 
   mark.style.backgroundColor = colors.bg;
   mark.style.color = colors.text || 'inherit';
@@ -693,3 +696,10 @@ setTimeout(() => {
   log('Auto-trigger timer started');
   autoLoadAndHighlight();
 }, CONFIG.AUTO_TRIGGER_DELAY);
+
+// Dynamic model output is text; only the static tooltip template is HTML.
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+}

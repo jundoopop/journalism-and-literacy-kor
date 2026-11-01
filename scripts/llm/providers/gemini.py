@@ -2,10 +2,11 @@
 Google Gemini provider implementation
 
 Ported from scripts/gemini_handler.py with unified interface.
-Uses gemini-2.5-flash-lite model (NEWEST 2025).
+Uses the official generateContent REST API and isolated per-request credentials.
 """
 
-import google.generativeai as genai
+import requests
+from urllib.parse import quote
 from typing import Dict
 from ..base import BaseLLMProvider, AnalysisResult, LLMConfig
 from ..exceptions import LLMProviderError, ConfigurationError
@@ -21,8 +22,8 @@ class GeminiProvider(BaseLLMProvider):
 
         try:
             # Initialize Gemini
-            genai.configure(api_key=self.config.api_key)
-            self.model = genai.GenerativeModel(self.config.model_name)
+            if not self.config.model_name:
+                raise ConfigurationError("Gemini model name is required")
 
             self.logger.info(f"Gemini initialized with model: {self.config.model_name}")
         except Exception as e:
@@ -43,16 +44,39 @@ class GeminiProvider(BaseLLMProvider):
         Raises:
             LLMProviderError: If API call fails
         """
-        # Gemini combines system prompt and user prompt
-        full_prompt = f"{system_prompt}\n\n기사 본문:\n{prompt}"
-
+        payload = {
+            "systemInstruction": {"parts": [{"text": system_prompt}]},
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "maxOutputTokens": self.config.max_tokens or 2048,
+            },
+        }
+        # Keep Gemini 3's provider sampling defaults; tune on real articles.
+        if not self.config.model_name.startswith("gemini-3"):
+            payload["generationConfig"]["temperature"] = self.config.temperature
+        endpoint = ("https://generativelanguage.googleapis.com/v1beta/models/"
+                    + quote(self.config.model_name, safe="") + ":generateContent")
         try:
-            self.logger.debug("Sending request to Gemini API...")
-            response = self.model.generate_content(full_prompt)
-            return response.text
-        except Exception as e:
-            self.logger.error(f"Gemini API call failed: {e}")
-            raise LLMProviderError(f"Gemini API error: {e}")
+            with requests.post(endpoint, headers={"x-goog-api-key": self.config.api_key},
+                               json=payload, timeout=self.config.timeout,
+                               allow_redirects=False) as response:
+                if response.status_code != 200:
+                    raise LLMProviderError(f"Gemini HTTP {response.status_code}")
+                data = response.json()
+            candidates = data.get("candidates", [])
+            if not candidates or candidates[0].get("finishReason") != "STOP":
+                raise LLMProviderError("Gemini returned incomplete or blocked output")
+            text = "".join(p.get("text", "") for p in candidates[0].get("content", {}).get("parts", [])
+                           if not p.get("thought"))
+            if not text:
+                raise LLMProviderError("Gemini returned no text")
+            return text
+        except LLMProviderError:
+            raise
+        except Exception as exc:
+            # Do not include upstream response bodies or credentials in logs.
+            raise LLMProviderError(f"Gemini request failed ({type(exc).__name__})") from exc
 
     def analyze_article(self, article_text: str, system_prompt: str) -> AnalysisResult:
         """
@@ -81,7 +105,8 @@ class GeminiProvider(BaseLLMProvider):
             raw_response = self._call_api(article_text, system_prompt)
 
             # Parse JSON response
-            sentences = self._parse_json_response(raw_response)
+            sentences = self._validate_sentences(
+                self._parse_json_response(raw_response), article_text)
 
             self.logger.info(f"Successfully extracted {len(sentences)} sentences")
 

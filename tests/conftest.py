@@ -18,7 +18,7 @@ sys.path = [p for p in sys.path if not p.endswith('lab')]
 sys.path.insert(0, scripts_path)
 
 import os
-os.chdir(scripts_path)
+
 
 
 @pytest.fixture
@@ -111,10 +111,29 @@ def sample_config():
 
 
 @pytest.fixture(autouse=True)
-def reset_services():
-    """Reset service instances between tests."""
+def reset_services(tmp_path, monkeypatch):
+    """Each test gets its own database, configuration and metrics state."""
+    import importlib
+    from config import settings
+    from observability import metrics, set_correlation_id
+    db = importlib.import_module('database.init_db')
+    if db._engine is not None:
+        db._engine.dispose()
+    db._engine = db._SessionFactory = None
+    monkeypatch.setattr(settings.database, 'path', str(tmp_path / 'analytics.db'))
+    monkeypatch.setattr(settings.cache, 'enabled', False)
+    monkeypatch.setattr(settings.observability, 'log_dir', str(tmp_path / 'logs'))
+    for provider in ('gemini', 'mistral', 'openai', 'claude', 'llama'):
+        monkeypatch.setattr(settings.llm, provider + '_api_key', None)
+        monkeypatch.delenv(provider.upper() + '_API_KEY', raising=False)
+    metrics.reset()
+    metrics.enable()
+    set_correlation_id(None)
     yield
-    # Any cleanup needed between tests
+    if db._engine is not None:
+        db._engine.dispose()
+    db._engine = db._SessionFactory = None
+    set_correlation_id(None)
 
 
 @pytest.fixture

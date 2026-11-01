@@ -1,302 +1,271 @@
-# News Literacy Analyzer - Korean Media Analysis Platform
+# News Literacy Analyzer
 
-A comprehensive research platform for analyzing Korean news articles using multiple LLM providers, featuring prompt engineering experimentation, consensus analysis, and Chrome extension integration.
+A Python service and Chrome extension for exploring Korean news articles through
+selected passages and explanations of their value for critical reading.
+Development is continuing on the existing project: the current maintenance work
+repairs the analysis pipeline, refreshes model integrations, and improves local operation.
 
----
+## Current status
 
-## 🎯 Project Overview
+- The HTTP service supports single-provider analysis and parallel comparison across providers.
+- The extension highlights returned passages and displays selection reasons.
+- The intended runtime is a **local, trusted-user application**. Public deployment needs additional work.
+- Model integration and extension changes are implemented but **have not been tested against live APIs or a real browser**.
+- The recorded 158 Python and 2 JavaScript test passes belong to an earlier runtime repair snapshot.
+  Tests have not been rerun after the model refresh. Container execution and hosted CI are also pending.
 
-This platform is designed for **journalism literacy research** and provides:
+Start with [local operation instructions](docs/OPERATIONS.md),
+[maintenance notes](docs/MAINTENANCE_NOTES.md), and the
+[engineering walkthrough](docs/ENGINEERING_GUIDE.md).
 
-1. **Multi-LLM News Analysis**: Analyze Korean news articles with 5 LLM providers (Gemini, OpenAI, Claude, Mistral, Llama)
-2. **Consensus Mode**: Cross-validate results across multiple models to identify reliable patterns
-3. **Benchmark Evaluation System**: Comprehensive framework for testing prompt engineering techniques
-4. **Chrome Extension**: Real-time article highlighting for supported Korean news sites
-5. **Production-Ready Backend**: Flask API with Redis caching, observability, and health monitoring
+## How a request works
 
-### Key Research Features
-
-- **Prompt Engineering Experiments**: Test optimized vs baseline prompts across lightweight models
-- **Inter-Model Agreement (IMA)**: Measure consistency between different LLM providers
-- **Prompt Improvement Rate (PIR)**: Quantify effectiveness of prompt optimization techniques
-- **Korean News Crawlers**: Site-specific parsers for 5 major Korean newspapers
-
----
-
-## 📁 Project Structure
-
+```mermaid
+flowchart TD
+    A[Chrome extension] --> B[Read server model configuration]
+    B --> C{Browser cache hit?}
+    C -->|Yes| J[Render highlights and escaped explanations]
+    C -->|No| D[Flask validates request and URL]
+    D --> E[Fetch allowed news URL and parse article]
+    E --> F{Redis analysis cache hit?}
+    F -->|Yes| I[Format response and record analytics]
+    F -->|No| G[Call one provider or several in parallel]
+    G --> H[Validate JSON and source excerpts; aggregate votes]
+    H --> I
+    I --> J
 ```
+
+The server currently crawls the article **before** checking its analysis cache.
+A browser cache hit avoids the analysis request; a Redis hit avoids model calls
+but still involves fetching and parsing the article.
+
+Model agreement measures selection overlap. It does not establish factual accuracy
+or the educational quality of the explanations.
+
+## Project structure
+
+The tree below shows the main tracked components; generated caches, logs and databases are omitted.
+
+```text
 journalism-and-literacy-kor/
-├── chrome-ex/                  # Chrome extension (auto-highlighting)
-│   ├── background.js           # HTTP client to Flask backend
-│   ├── content.js              # DOM manipulation & highlighting
-│   ├── settings.html           # User configuration UI
-│   └── manifest.json           # Extension manifest (HTTP mode)
-│
+├── chrome-ex/
+│   ├── manifest.json                 # Extension permissions and entry points
+│   ├── background.js                 # HTTP requests and browser cache
+│   ├── content.js                    # Passage matching, highlights and tooltips
+│   ├── settings.html / settings.js   # Analysis mode and provider selection
+│   └── popup.html / popup.js         # Extension controls
 ├── scripts/
-│   ├── server.py               # Flask API server (main entry point)
-│   ├── services/               # Service layer
-│   │   ├── analysis_service.py # LLM orchestration (single/consensus)
-│   │   ├── crawler_service.py  # Article fetching orchestration
-│   │   └── cache_service.py    # Redis caching
-│   │
-│   ├── llm/                    # LLM provider abstractions
-│   │   ├── factory.py          # Provider factory pattern
-│   │   ├── base.py             # BaseLLMProvider class
-│   │   ├── config.py           # Model defaults
-│   │   └── providers/          # Provider implementations
-│   │       ├── gemini.py       # Google Gemini (gemini-2.5-flash-lite)
-│   │       ├── openai_provider.py  # OpenAI (gpt-5-nano)
-│   │       ├── claude.py       # Anthropic (claude-4.5-haiku)
-│   │       ├── mistral.py      # Mistral (mistral-small-2506)
-│   │       └── llama.py        # Meta Llama
-│   │
-│   ├── benchmark/              # 🆕 Prompt evaluation framework
-│   │   ├── cli.py              # Command-line interface
-│   │   ├── data_loader.py      # Excel dataset + URL fetching
-│   │   ├── metrics.py          # F1/Precision/Recall (Exact + Semantic)
-│   │   ├── experiment_runner.py # 6-condition orchestration
-│   │   └── results_analyzer.py # PIR/IMA/statistical tests
-│   │
-│   ├── crawlers/               # Site-specific parsers
-│   │   ├── crawler_unified.py  # Domain detection & routing
-│   │   ├── crawler_chosun.py   # Chosun Ilbo (Fusion JSON)
-│   │   ├── crawler_joongang.py # Joongang Ilbo (multi-source)
-│   │   ├── crawler_khan.py     # Kyunghyang Shinmun (semantic HTML)
-│   │   ├── crawler_hani.py     # Hankyoreh (CSS classes)
-│   │   └── crawler.py          # Generic fallback (Readability)
-│   │
-│   └── consensus_analyzer.py   # Multi-provider aggregation
-│
-├── prompts/
-│   ├── base_prompt_ko_openai_nano.txt   # Optimized prompt (46 lines)
-│   ├── base_prompt_ko_gemini.txt        # Optimized prompt (83 lines)
-│   ├── base_prompt_ko_mistral.txt       # Optimized prompt (84 lines)
-│   ├── baseline/                        # 🆕 Baseline prompts for comparison
-│   │   ├── base_prompt_ko_openai.txt    # 23 lines, Korean, complex schema
-│   │   ├── base_prompt_ko_gemini.txt
-│   │   └── base_prompt_ko_mistral.txt
-│   └── README.md               # Prompt engineering documentation
-│
-├── data/
-│   ├── benchset/               # Benchmark evaluation data
-│   │   ├── korean_news_benchmark_issue_based_50.xlsx  # 50 articles dataset
-│   │   ├── preprocessed_articles.json  # Cached fetched articles
-│   │   └── experiments/        # Experiment results
-│   ├── logs/                   # Application logs
-│   └── analytics.db            # SQLite analytics database
-│
+│   ├── server.py                     # Flask routes and service composition
+│   ├── api/                          # Validation, errors and middleware
+│   ├── services/                     # Crawling, analysis, cache and health services
+│   ├── url_safety.py                 # Allowed URLs, DNS checks and bounded fetching
+│   ├── crawler_unified.py            # Active parser routing
+│   ├── crawler.py                    # Generic Readability extraction
+│   ├── crawler_*.py                  # Publisher-specific parser modules
+│   ├── crawlers/                     # Separate plugin framework retained from earlier work
+│   ├── consensus_analyzer.py         # Parallel calls and sentence-vote aggregation
+│   ├── llm/
+│   │   ├── base.py / factory.py      # Provider contract and construction
+│   │   ├── config.py                 # Model defaults, alternatives and cache fingerprint
+│   │   ├── providers/               # Gemini, OpenAI, Claude, Mistral and Llama adapters
+│   │   └── prompts/                 # Active extraction prompt and prompt utilities
+│   ├── observability/                # Logs, correlation IDs and metrics
+│   ├── database/                     # SQLAlchemy models, sessions and repositories
+│   ├── config/                       # Environment-backed settings
+│   ├── benchmark/                    # Older offline prompt-evaluation framework
+│   ├── tools/                        # Local administrative utilities
+│   └── native_host.py                # Legacy native-messaging entry point
+├── benchmarks/
+│   ├── fixture_app.py                # HTTP benchmark with fake upstreams
+│   ├── http_load.py                  # Load and shutdown experiment driver
+│   └── records/                      # Historical raw measurements and test output
 ├── tests/
-│   ├── unit/                   # Unit tests
-│   │   ├── test_crawler_live.py  # Live URL tests
-│   │   └── test_cache_service.py
-│   └── integration/            # Integration tests
-│       └── test_analysis_workflow.py
-│
-└── docs/
-    ├── PIPELINE_FLOW.md        # Complete architecture documentation
-    ├── API_CONNECTION_GUIDE.md # API key setup & troubleshooting
-    ├── MISTRAL_SETUP.md        # Mistral API configuration
-    └── CRAWLER_GUIDE.md        # Crawler development guide
+│   ├── unit/                        # Component checks
+│   ├── integration/                 # Service workflow checks
+│   ├── regression/                  # Request, URL-safety and failure regressions
+│   └── extension.test.cjs            # JavaScript regression checks
+├── prompts/                         # Earlier research prompts and baselines
+├── data/                            # Article schema, dataset and sample HTML
+├── docs/                            # Maintenance, operation and engineering guides
+├── install/                         # Earlier installation/native-messaging scripts
+├── .github/workflows/checks.yml     # Authored regression and container jobs
+├── .env.example                     # Local configuration template
+├── requirements-runtime.txt         # API runtime dependencies
+├── requirements-dev.txt             # Runtime plus test dependencies
+├── requirements.txt                 # Broader research dependencies
+├── gunicorn.conf.py                 # One process, eight HTTP threads by default
+├── Dockerfile
+└── docker-compose.yml               # API and Redis with loopback port publishing
 ```
 
----
+The active HTTP route uses `scripts/crawler_unified.py`, not the separate
+`scripts/crawlers/` plugin registry. The Chrome extension uses HTTP; it does not
+require the legacy native-messaging installer.
 
-## 🚀 Quick Start
+## Local setup
 
-### Prerequisites
+Use Python 3.12 for the documented runtime. Node.js 22 is used by the JavaScript
+checks; Chrome is needed for the extension. Redis is optional.
+Run the following from the repository root on macOS or Linux:
 
-- Python 3.9+
-- Chrome browser (for extension)
-- Redis (optional, for caching)
-
-### 1. Installation
-
-```bash
-# Clone repository
-git clone https://github.com/jundoopop/journalism-and-literacy-kor.git
-cd journalism-and-literacy-kor
-
-# Install dependencies
-pip install -r requirements.txt
+```sh
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements-runtime.txt
 ```
 
-### 2. Environment Configuration
+Create `.env` from `.env.example` if you do not already have one. Keep your existing
+configuration when upgrading. Set a real API key for each provider you select,
+remove unused placeholder keys, and replace the sample `ADMIN_TOKEN` with a random secret.
+For operation without Redis, set both `CACHE_ENABLED=False` and `ENABLE_CACHE=False`.
+The `.env` file is ignored by Git.
 
-Create `.env` file in project root:
-
-```bash
-# LLM API Keys (at least GEMINI_API_KEY required)
-GEMINI_API_KEY=your_gemini_api_key_here
-MISTRAL_API_KEY=your_mistral_api_key_here  # For consensus mode
-OPENAI_API_KEY=your_openai_api_key_here    # Optional
-CLAUDE_API_KEY=your_claude_api_key_here    # Optional
-
-# Consensus Settings (default: gemini + mistral)
-CONSENSUS_ENABLED=True
-CONSENSUS_PROVIDERS=gemini,mistral
-
-# Flask Server
-FLASK_PORT=5001
-FLASK_DEBUG=False
-
-# Cache Settings (optional)
-CACHE_ENABLED=True
-REDIS_HOST=localhost
-REDIS_PORT=6379
-CACHE_TTL=3600
-
-# LLM Performance
-LLM_TIMEOUT=40
-LLM_MAX_RETRIES=3
-LLM_TEMPERATURE=0.2
+```sh
+.venv/bin/python -m gunicorn --pythonpath scripts --config gunicorn.conf.py server:app
 ```
 
-### 3. Verify API Connections
+The default listener is `127.0.0.1:5001`. Gunicorn uses `BIND` to override this;
+`FLASK_HOST` and `FLASK_PORT` apply to the development server started with
+`.venv/bin/python scripts/server.py`.
 
-Test all configured LLM providers:
+For the extension:
 
-```bash
-python scripts/test_api_connection.py
-```
+1. Open `chrome://extensions` and enable Developer mode.
+2. Load `chrome-ex/` as an unpacked extension.
+3. Open extension settings and select one provider, or at least two for consensus mode.
+4. Open an HTTPS article on an allowed publisher domain.
+5. Reload the extension after changing its files. If you change the API port,
+   update `background.js` and the corresponding permission in `manifest.json`.
 
-Expected output:
-```
-=== LLM Provider Connection Test ===
-✓ gemini: CONNECTED (gemini-2.5-flash-lite)
-✓ mistral: CONNECTED (mistral-small-2506)
-✗ openai: NOT CONFIGURED
-✗ claude: NOT CONFIGURED
-```
+`docker compose up --build` is the alternative container workflow. Its image and
+runtime have not yet been verified locally. See [operations](docs/OPERATIONS.md)
+for configuration, shutdown and troubleshooting details.
 
-See [docs/API_CONNECTION_GUIDE.md](docs/API_CONNECTION_GUIDE.md) for troubleshooting.
+## Model configuration
 
-### 4. Start Flask Server
+These are the model IDs currently configured in the code, reviewed on 2026-10-04.
+Account access and Korean extraction quality still require live evaluation.
 
-```bash
-python scripts/server.py
-```
+| Provider | Default model | Alternative / status |
+|---|---|---|
+| Gemini | `gemini-3.5-flash-lite` | `gemini-3.1-flash-lite` |
+| OpenAI | `gpt-6-luna` | Uses `reasoning_effort=none` for this extraction task |
+| Mistral | `ministral-8b-2512` | `ministral-3b-2512` for the smaller candidate |
+| Claude | `claude-haiku-4-5-20251001` | Pinned model ID |
+| Llama | `meta-llama/Llama-3.1-8B-Instruct` | Legacy Together adapter; hosted availability unverified |
 
-Server will start on `http://localhost:5001` (configurable via `FLASK_PORT`).
+Configure `<PROVIDER>_API_KEY` and `<PROVIDER>_MODEL` in `.env`, for example
+`MISTRAL_MODEL=ministral-3b-2512`. Existing environment settings override code defaults.
+Restart the server after configuration changes. Defaults include a 2,048-token
+output cap and a 40-second provider timeout; supported options differ by provider.
+The `LLM_MAX_RETRIES` setting is not a uniform retry policy across all adapters.
 
-Verify health:
-```bash
-curl http://localhost:5001/health
-```
+The HTTP API selects providers; each provider uses its server-configured model.
+Compare Mistral 3B and 8B in separate runs. They are not two independent entries
+in the same consensus request. Provider API keys remain on the server.
 
-### 5. Load Chrome Extension (Optional)
+Reference catalogs:
+[Gemini](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite),
+[OpenAI](https://developers.openai.com/api/docs/models/gpt-6-luna),
+[Ministral 8B](https://docs.mistral.ai/models/ministral-3-8b-25-12),
+[Ministral 3B](https://docs.mistral.ai/models/ministral-3-3b-25-12), and
+[Claude](https://platform.claude.com/docs/en/models/haiku-4-5/overview).
+These sources describe the candidates; they do not establish project-specific quality rankings.
 
-For real-time article highlighting:
+## API and publisher coverage
 
-1. Open `chrome://extensions`
-2. Enable **Developer mode**
-3. Click **Load unpacked**
-4. Select `chrome-ex/` folder
+| Endpoint | Purpose |
+|---|---|
+| `GET /healthz` | Process liveness; no paid provider request |
+| `GET /readyz` | Local prerequisites; 200 when ready, otherwise 503 |
+| `GET /health` | Component report and legacy extension compatibility fields |
+| `GET /models` | Selected model IDs, alternatives and configuration fingerprint |
+| `POST /analyze` | Single-provider analysis; `provider` defaults to `gemini` |
+| `POST /analyze_consensus` | Parallel analysis of unique supported providers |
+| `GET /metrics` | Prometheus HTTP metrics; requires `X-Admin-Token` |
+| `/admin/*` | Administrative endpoints; token required when enabled |
 
-**Note**: If you change `FLASK_PORT`, update:
-- `chrome-ex/background.js` → `SERVER_URL`
-- `chrome-ex/manifest.json` → `host_permissions`
+Disabled administrative endpoints return 404. Provider health checks inspect local
+configuration and initialization; they do not prove that an upstream API accepts the key or model.
+The analysis endpoints are intended for local use and do not have public-client authentication.
 
----
+Example request bodies (replace the URL with a real article before sending):
 
-## 📖 Core Features
-
-### 1. Multi-Provider LLM Analysis
-
-Analyze articles with any supported LLM provider:
-
-```bash
-# Using Gemini (default)
-curl -X POST http://localhost:5001/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://www.khan.co.kr/article/...", "provider": "gemini"}'
-
-# Using OpenAI
-curl -X POST http://localhost:5001/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://www.khan.co.kr/article/...", "provider": "openai"}'
-```
-
-**Response Format**:
 ```json
-{
-  "success": true,
-  "url": "https://...",
-  "headline": "기사 제목",
-  "sentences": [
-    {
-      "text": "선택된 문장",
-      "reason": "선택 이유 (문장 명료성, 논리 구조, 비판적 사고 유도 등)",
-      "consensus_level": "medium"
-    }
-  ],
-  "count": 4
-}
+{"url": "https://www.hani.co.kr/your-article-path", "provider": "mistral"}
 ```
 
-### 2. Consensus Mode
-
-Cross-validate results across multiple LLM providers:
-
-```bash
-curl -X POST http://localhost:5001/analyze_consensus \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://...", "providers": ["gemini", "mistral", "openai"]}'
-```
-
-**Response Format**:
 ```json
-{
-  "success": true,
-  "total_providers": 3,
-  "successful_providers": ["gemini", "mistral", "openai"],
-  "sentences": [
-    {
-      "text": "국회는 예산안을 통과시켰다",
-      "consensus_score": 3,
-      "consensus_level": "high",
-      "selected_by": ["gemini", "mistral", "openai"],
-      "reasons": {
-        "gemini": "명확한 사실 진술로 문장 구조 학습에 적합",
-        "mistral": "간결한 문장으로 핵심 정보 전달 효과적",
-        "openai": "주어-동사-목적어 구조가 명확하여 이해 용이"
-      }
-    },
-    {
-      "text": "여야 간 협상이 필요하다",
-      "consensus_score": 1,
-      "consensus_level": "low",
-      "selected_by": ["gemini"],
-      "reasons": {
-        "gemini": "논리적 추론을 유도하는 주장"
-      }
-    }
-  ],
-  "count": 2
-}
+{"url": "https://www.hani.co.kr/your-article-path", "providers": ["gemini", "mistral"]}
 ```
 
-**Consensus Levels**:
-- `high`: Selected by ≥75% of providers
-- `medium`: Selected by 50-74% of providers
-- `low`: Selected by <50% of providers
+Single analysis returns `sentences` with `text` and `reason`, plus the selected
+`provider` and `model`. Consensus includes `total_providers`, `successful_providers`,
+`failed_providers`, and per-sentence votes/reasons. A partial result can succeed
+while listing failed providers; it is not stored in the server analysis cache.
 
-### 3. Benchmark Evaluation System
+Current consensus labels are **count-based**, not percentage thresholds:
 
-Test prompt engineering techniques systematically:
+- One successful provider: `insufficient` for every selected passage.
+- Two successful providers: two votes are `high`; one is `low`.
+- Three or more successful providers: three or more votes are `high`, two are
+  `medium`, and one is `low`. This does not require unanimity.
 
-```bash
-# 1. Prepare dataset (fetch 50 articles from URLs)
-python -m scripts.benchmark.cli prepare
+The HTTP fetcher allows HTTPS on these domains and their subdomains:
 
-# 2. Run full experiment (6 conditions × 50 articles = 300 API calls)
-python -m scripts.benchmark.cli run --yes
+| Publisher | Domain | Active HTTP parser |
+|---|---|---|
+| Chosun Ilbo | `chosun.com` | Chosun parser |
+| JoongAng Ilbo | `joongang.co.kr` | JoongAng parser |
+| Hankyoreh | `hani.co.kr` | Generic Readability fallback |
+| Hankook Ilbo | `hankookilbo.com` | Generic Readability fallback |
+| Kyunghyang Shinmun | `khan.co.kr` | Generic Readability fallback |
 
-# 3. Analyze results
-python -m scripts.benchmark.cli analyze --experiment-id exp_20250101_120000
+Additional publisher parser modules exist but are not all wired into the active
+router. Generic parsing does not allow arbitrary external domains. Current live
+publisher HTML and highlight placement still need verification.
 
-# 4. Generate report for research paper
-python -m scripts.benchmark.cli report --experiment-id exp_20250101_120000 --format markdown
+## Recent maintenance changes
+
+| Earlier behavior | Current implementation |
+|---|---|
+| Broken logging/provider contracts interrupted analysis | Repaired structured logging and calls to `analyze_article` |
+| Single analysis forced Gemini | Select any of the five existing adapters |
+| Dated defaults and invalid Claude model ID | Updated model configuration and provider-specific request options |
+| Gemini configured a process-global SDK client | Request-scoped REST credentials and JSON output mode |
+| Well-formed JSON could include invented passages | Reject excerpts absent from the source, blank reasons, normalized duplicates and more than five entries |
+| Unrestricted outbound fetching | Domain and public-address checks, validated redirects, pinned TLS destination and size bounds |
+| Generic parser fetched HTML again | Reuse the already fetched article |
+| Cache identity omitted model settings | Include mode, providers, URL hash and model/prompt configuration fingerprint |
+| Extension clearing cache erased preferences | Remove only cache entries; escape dynamic tooltip content |
+| Unbounded timing history and ambiguous health | Bounded timing retention, HTTP metrics, separate liveness and readiness |
+
+See [maintenance notes](docs/MAINTENANCE_NOTES.md) for the detailed change record.
+
+## Measurement and development
+
+Two different evaluation areas exist:
+
+- **HTTP runtime experiment:** `benchmarks/` measures the real HTTP path using fake news
+  content and fake model providers. Recorded medians at eight concurrent clients were
+  14.91 vs 100.43 requests/s and 548.81 vs 97.21 ms p95, comparing one vs eight HTTP threads.
+  These are historical synthetic results from the earlier repair snapshot, not current
+  model latency, production capacity, or a before/after comparison against the broken app.
+- **Offline prompt research:** `scripts/benchmark/` and `prompts/` retain earlier research
+  tooling and a dataset. The runner still calls the obsolete `llm.analyze` interface and
+  uses separate model defaults. It needs migration before a new experiment; its old
+  instructions are not a working evaluation path for the refreshed adapters.
+
+The broader research requirements are separate from the API runtime dependencies.
+Previous README estimates and model-quality percentages were removed because they
+were not established by a reproducible current experiment.
+
+Commands for a future verification pass:
+
+```sh
+.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/python -m pytest tests
+node --test tests/extension.test.cjs
+.venv/bin/python benchmarks/http_load.py --output /tmp/news-literacy-http.json
 ```
 
 **Experimental Design (2×3 Matrix)**:
@@ -780,22 +749,34 @@ If you use this platform for research, please cite:
 
 [Add your license here]
 
----
+For a model comparison, fix a representative Korean article set and its hashes,
+repeat each candidate under the same prompt and limits with caches disabled, and
+record JSON validity, source matching, failures, latency and actual provider usage.
+Blind-review selection reasons for relevance, fidelity and usefulness. Report cost
+per accepted analysis including failures. A newer model or stronger agreement score
+is not sufficient evidence of better results.
 
-## 🙏 Acknowledgments
+## Engineering reading guide and remaining work
 
-- **LLM Providers**: Google (Gemini), OpenAI (GPT), Anthropic (Claude), Mistral AI, Meta (Llama)
-- **Libraries**: BeautifulSoup4, Readability, Flask, sentence-transformers (Ko-SBERT)
-- **Research Support**: [Add your institution/funding]
+The [engineering walkthrough](docs/ENGINEERING_GUIDE.md) explains the abstractions,
+algorithms, concurrency, networking, caching, database transactions, observability,
+and experimental methods used here, with code reading order and practical exercises.
 
----
+Priorities for the next development pass:
 
-## 📧 Contact
+1. Refresh stale fixtures and run the current regression suite.
+2. Repair the offline evaluation runner and measure actual model quality and latency.
+3. Verify the extension and active parsers against real articles.
+4. Exercise containers, shutdown behavior and hosted CI.
+5. Improve cache freshness, partial-result handling in the browser, concurrency limits,
+   per-provider measurements and Redis recovery.
 
-- **GitHub Issues**: [https://github.com/jundoopop/journalism-and-literacy-kor/issues](https://github.com/jundoopop/journalism-and-literacy-kor/issues)
-- **Email**: [Add contact email]
+Runtime limits include a single server process, SQLite write contention, no global
+provider concurrency cap, incomplete end-to-end cancellation, and no article-content
+hash in analysis cache keys. Public hosting also needs authentication and cost quotas.
 
----
+Older installation and research guides are retained for context. Prefer this README
+and the operation/engineering guides for the current HTTP path.
 
 **Last Updated**: 2026-11-01
 **Version**: 2.0.0

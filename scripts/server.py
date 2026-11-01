@@ -15,10 +15,12 @@ sys.path.insert(0, str(project_root))
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 import time
+import re
 
 # New architecture imports
 from config import settings
 from observability import setup_logging, get_logger, request_context, get_correlation_id, metrics
+from services.crawler_service import CrawlerError as ServiceCrawlerError
 from services import CrawlerService, AnalysisService, CacheService, HealthService, FeatureFlagsService
 from api.middleware import setup_middleware, admin_auth_middleware
 from api.errors import (
@@ -41,10 +43,22 @@ logger = get_logger(__name__)
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024
+CORS(app, origins=[r"^chrome-extension://[a-p]{32}$"])
+
+@app.before_request
+def restrict_browser_origin():
+    # CORS alone does not prevent side effects of requests from other websites.
+    origin = request.headers.get('Origin')
+    if origin and not re.fullmatch(r"chrome-extension://[a-p]{32}", origin):
+        return jsonify({"success": False, "error": {"code": "ORIGIN_FORBIDDEN"}}), 403
 
 # Setup all middleware (correlation ID, metrics, error handling)
 setup_middleware(app)
+from api.validation import analysis_request
+from observability.http_metrics import setup_http_metrics, metrics_response
+if settings.enable_metrics:
+    setup_http_metrics(app)
 
 # Initialize services
 cache_service = CacheService()
@@ -142,6 +156,45 @@ def health_check():
     })
 
 
+@app.route('/models', methods=['GET'])
+def model_catalog():
+    """Local configuration only; exposes no credentials and makes no API calls."""
+    from llm.base import LLMProvider
+    from llm.config import MODEL_OPTIONS, get_default_config, configuration_fingerprint
+    return jsonify({
+        "reviewed_at": "2026-10-04",
+        "live_verified": False,
+        "configuration_id": configuration_fingerprint([p.value for p in LLMProvider]),
+        "providers": {p.value: {
+            "selected_model": get_default_config(p).model_name,
+            "alternatives": MODEL_OPTIONS[p.value],
+            "legacy": p.value == "llama",
+        } for p in LLMProvider},
+    })
+
+
+@app.route('/healthz', methods=['GET'])
+def liveness():
+    """Process liveness: no external calls or paid API probes."""
+    return jsonify({"status": "alive"})
+
+
+@app.route('/readyz', methods=['GET'])
+def readiness():
+    """Local prerequisites, NOT evidence of upstream API reachability."""
+    health = health_service.get_system_health()
+    ready = health['overall_status'] in ('healthy', 'degraded')
+    return jsonify({"status": "ready" if ready else "not_ready",
+                    "check": "local_prerequisites",
+                    "upstream_connectivity_verified": False}), 200 if ready else 503
+
+
+@app.route('/metrics', methods=['GET'])
+@admin_auth_middleware()
+def prometheus_metrics():
+    return metrics_response()
+
+
 @app.route('/test', methods=['GET'])
 def test():
     """Simple test endpoint."""
@@ -183,17 +236,8 @@ def analyze_article_endpoint():
         }
     """
     start_time = time.time()
-    data = request.get_json()
-
-    # Validate request
-    if not data or 'url' not in data:
-        error = ValidationError("URL field is required in request body")
-        return error_response(error)
-
-    url = data.get('url')
-    if not isinstance(url, str) or not url.strip():
-        error = ValidationError("URL must be a non-empty string")
-        return error_response(error)
+    url = analysis_request()
+    provider = request.get_json().get("provider", "gemini")
 
     logger.info("Single LLM analysis request received", url=url)
 
@@ -203,17 +247,17 @@ def analyze_article_endpoint():
         article_data = crawler_service.crawl_article(url)
 
         # Step 2: Analyze with single LLM (with caching)
-        logger.info("[2/3] Analyzing with Gemini")
+        logger.info("[2/3] Analyzing article", provider=provider)
         analysis_result = analysis_service.analyze_single(
             article_text=article_data.body_text,
-            provider='gemini',
+            provider=provider,
             url=url,
             use_cache=settings.enable_cache
         )
 
         # Log to database
         log_analysis_to_database(
-            provider='gemini',
+            provider=provider,
             sentence_count=len(analysis_result.sentences),
             latency_ms=analysis_result.duration_ms,
             success=True
@@ -236,7 +280,7 @@ def analyze_article_endpoint():
         log_request_to_database(
             url=url,
             mode='single',
-            providers=['gemini'],
+            providers=[provider],
             status='success',
             duration_ms=duration_ms
         )
@@ -245,6 +289,8 @@ def analyze_article_endpoint():
             "url": url,
             "headline": article_data.headline,
             "sentences": sentences_with_metadata,
+            "provider": provider,
+            "model": analysis_result.model_name,
             "count": len(sentences_with_metadata)
         })
 
@@ -255,17 +301,17 @@ def analyze_article_endpoint():
         log_request_to_database(
             url=url,
             mode='single',
-            providers=['gemini'],
+            providers=[provider],
             status='error',
             duration_ms=duration_ms,
             error_message=str(e)
         )
 
         # Convert to appropriate error type
-        if 'crawler' in str(e).lower() or 'crawl' in str(e).lower():
+        if isinstance(e, ServiceCrawlerError):
             error = APICrawlerError(str(e), details={'url': url})
         else:
-            error = APILLMError('gemini', str(e))
+            error = APILLMError(provider, str(e))
 
         return error_response(error)
 
@@ -305,15 +351,7 @@ def analyze_consensus_endpoint():
         }
     """
     start_time = time.time()
-    data = request.get_json()
-
-    # Validate request
-    if not data or 'url' not in data:
-        error = ValidationError("URL field is required in request body")
-        return error_response(error)
-
-    url = data.get('url')
-    providers = data.get('providers', settings.consensus_providers)
+    url, providers = analysis_request(consensus=True)
 
     logger.info("Consensus analysis request received", url=url, providers=providers)
 
@@ -380,7 +418,7 @@ def analyze_consensus_endpoint():
         )
 
         # Convert to appropriate error type
-        if 'crawler' in str(e).lower() or 'crawl' in str(e).lower():
+        if isinstance(e, ServiceCrawlerError):
             error = APICrawlerError(str(e), details={'url': url})
         else:
             error = APILLMError('consensus', str(e))

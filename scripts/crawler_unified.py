@@ -34,22 +34,21 @@ def detect_parser(url: str) -> str:
     """URL에서 적절한 파서 유형을 결정합니다."""
     domain = urlparse(url).netloc.lower()
     for key, parser_type in PARSER_MAP.items():
-        if key in domain:
+        if domain == key or domain.endswith("." + key):
             return parser_type
     return "generic"
 
 
 def fetch(url: str) -> str:
     """URL에서 HTML을 가져옵니다."""
-    r = requests.get(url, headers=HEADERS, timeout=30)
-    r.raise_for_status()
-    return r.text
+    from url_safety import fetch_news_html
+    return fetch_news_html(url)
 
 
 def parse_generic(url: str, html: str) -> dict:
     """범용 파서 (기존 crawler.py 로직)"""
     try:
-        title, content_html = extract_main_html(url)
+        title, content_html = extract_main_html(url, html)
         body_text = html_to_text(content_html)
         domain = urlparse(url).netloc
         date_guess = detect_date(content_html) or detect_date(body_text)

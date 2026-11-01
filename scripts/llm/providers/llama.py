@@ -33,6 +33,8 @@ class LlamaProvider(BaseLLMProvider):
             # Initialize Together AI client (OpenAI-compatible)
             self.client = OpenAI(
                 api_key=self.config.api_key,
+                timeout=self.config.timeout,
+                max_retries=0,
                 base_url=self.config.base_url
             )
 
@@ -103,7 +105,8 @@ class LlamaProvider(BaseLLMProvider):
             raw_response = self._call_api(article_text, system_prompt)
 
             # Parse JSON response
-            sentences = self._parse_json_response(raw_response)
+            sentences = self._validate_sentences(
+                self._parse_json_response(raw_response), article_text)
 
             self.logger.info(f"Successfully extracted {len(sentences)} sentences")
 

@@ -1,8 +1,7 @@
 """
 Mistral AI provider implementation
 
-Uses mistral-small-2506 model (NEWEST 2025, 24B params).
-Improved accuracy with 2x fewer infinite generations.
+Supports configurable Ministral models with JSON output.
 """
 
 from mistralai import Mistral
@@ -21,7 +20,7 @@ class MistralProvider(BaseLLMProvider):
 
         try:
             # Initialize Mistral client
-            self.client = Mistral(api_key=self.config.api_key)
+            self.client = Mistral(api_key=self.config.api_key, timeout_ms=self.config.timeout * 1000)
 
             self.logger.info(f"Mistral initialized with model: {self.config.model_name}")
         except Exception as e:
@@ -53,9 +52,12 @@ class MistralProvider(BaseLLMProvider):
                 model=self.config.model_name,
                 messages=messages,
                 temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens
+                max_tokens=self.config.max_tokens or 2048,
+                response_format={"type": "json_object"}
             )
 
+            if response.choices[0].finish_reason != "stop":
+                raise LLMProviderError("Mistral returned incomplete output")
             return response.choices[0].message.content
 
         except Exception as e:
@@ -89,7 +91,8 @@ class MistralProvider(BaseLLMProvider):
             raw_response = self._call_api(article_text, system_prompt)
 
             # Parse JSON response
-            sentences = self._parse_json_response(raw_response)
+            sentences = self._validate_sentences(
+                self._parse_json_response(raw_response), article_text)
 
             self.logger.info(f"Successfully extracted {len(sentences)} sentences")
 

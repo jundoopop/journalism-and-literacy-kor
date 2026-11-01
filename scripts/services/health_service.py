@@ -112,7 +112,7 @@ class HealthService(BaseService):
 
             return {
                 'status': 'up',
-                'model': 'gemini-2.5-flash-lite',
+                'model': analyzer.model_name,
                 'api_key_configured': True
             }
 
@@ -144,7 +144,7 @@ class HealthService(BaseService):
 
             return {
                 'status': 'up',
-                'model': 'mistral-small-2506',
+                'model': provider.config.model_name,
                 'api_key_configured': True
             }
 
@@ -174,7 +174,7 @@ class HealthService(BaseService):
 
             return {
                 'status': 'up',
-                'model': 'gpt-5-nano',
+                'model': provider.config.model_name,
                 'api_key_configured': True
             }
 
@@ -204,7 +204,7 @@ class HealthService(BaseService):
 
             return {
                 'status': 'up',
-                'model': 'claude-4.5-haiku',
+                'model': provider.config.model_name,
                 'api_key_configured': True
             }
 
@@ -234,7 +234,7 @@ class HealthService(BaseService):
 
             return {
                 'status': 'up',
-                'model': 'meta-llama/Llama-3.1-8B-Instruct',
+                'model': provider.config.model_name,
                 'api_key_configured': True
             }
 

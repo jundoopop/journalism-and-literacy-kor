@@ -8,7 +8,7 @@ const CONFIG = {
   SERVER_URL: 'http://localhost:5001',
   CACHE_DURATION: 60 * 60 * 1000, // 1 hour
   LOG_PREFIX: '[Background]',
-  REQUEST_TIMEOUT: 60000 // 60 seconds
+  REQUEST_TIMEOUT: 90000 // 90 seconds: crawl plus one bounded provider call
 };
 
 // ============================================
@@ -48,12 +48,12 @@ async function getSettings() {
  * @param {string} url - Article URL
  * @returns {Promise<Object>} Response with sentences or error
  */
-async function fetchHighlightSentences(url) {
+async function fetchHighlightSentences(url, selectedSettings = null) {
   log(`Analysis request: ${url}`);
 
   try {
     // Get current settings
-    const settings = await getSettings();
+    const settings = selectedSettings || await getSettings();
     log(`Using ${settings.mode} mode with providers: ${settings.providers.join(', ')}`);
 
     let endpoint, body;
@@ -68,7 +68,7 @@ async function fetchHighlightSentences(url) {
     } else {
       // Single mode: use original analyze endpoint
       endpoint = `${CONFIG.SERVER_URL}/analyze`;
-      body = { url };
+      body = { url, provider: settings.providers[0] || 'gemini' };
     }
 
     log(`Calling ${endpoint}`);
@@ -139,9 +139,10 @@ async function checkServerHealth() {
     // v2+ contract: use overall status and provider component health
     if (result.overall_status) {
       const overallHealthy = ['healthy', 'degraded'].includes(result.overall_status);
-      const geminiStatus = result.components?.llm_providers?.gemini?.status;
-      const geminiReady = geminiStatus === 'up' || result.gemini_ready === true;
-      return overallHealthy && geminiReady;
+      const settings = await getSettings();
+      const required = settings.mode === 'consensus' ? settings.providers : settings.providers.slice(0, 1);
+      const providers = result.components?.llm_providers || {};
+      return overallHealthy && required.some(name => providers[name]?.status === 'up');
     }
 
     // Legacy contract fallback
@@ -164,8 +165,8 @@ async function checkServerHealth() {
  * @returns {string} Cache key
  */
 function getCacheKey(url, settings) {
-  const providersKey = settings.providers.sort().join('_');
-  return `cache_${settings.mode}_${providersKey}_${url}`;
+  const providersKey = [...settings.providers].sort().join('_');
+  return `cache_v3_${settings.configurationId || "unknown"}_${settings.mode}_${providersKey}_${url}`;
 }
 
 /**
@@ -236,7 +237,8 @@ async function setCachedResult(url, data, settings) {
  */
 async function clearAllCache() {
   try {
-    await chrome.storage.local.clear();
+    const stored = await chrome.storage.local.get(null);
+    await chrome.storage.local.remove(Object.keys(stored).filter(key => key.startsWith('cache_')));
     log('All cache cleared');
   } catch (error) {
     log(`Cache clear error: ${error.message}`, 'error');
@@ -259,18 +261,24 @@ async function handleGetHighlightSentences(url, sendResponse) {
     // Get current settings
     const settings = await getSettings();
 
-    // Step 1: Check cache
-    const cached = await getCachedResult(url, settings);
+    // Resolve model/prompt identity before trusting a previous local result.
+    try {
+      const response = await fetch(`${CONFIG.SERVER_URL}/models`, {
+        signal: AbortSignal.timeout(5000)
+      });
+      if (response.ok) settings.configurationId = (await response.json()).configuration_id;
+    } catch (_) { /* Server will report its analysis error; bypass local cache. */ }
+    const cached = settings.configurationId ? await getCachedResult(url, settings) : null;
     if (cached) {
       sendResponse(cached);
       return;
     }
 
     // Step 2: Fetch from server (will use consensus mode if enabled)
-    const result = await fetchHighlightSentences(url);
+    const result = await fetchHighlightSentences(url, settings);
 
     // Step 3: Save to cache if successful
-    if (result.success) {
+    if (result.success && settings.configurationId) {
       await setCachedResult(url, result, settings);
     }
 

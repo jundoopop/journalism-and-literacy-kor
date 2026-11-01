@@ -1,0 +1,58 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-7.4.3, pluggy-1.6.0 -- <repo>/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: <repo>
+configfile: pytest.ini
+plugins: cov-4.1.0, asyncio-0.21.1, mock-3.12.0, anyio-4.15.1
+asyncio: mode=Mode.STRICT
+collecting ... collected 5 items
+
+tests/sre/test_regressions.py::test_crawler_import_and_parse_without_second_download FAILED [ 20%]
+tests/sre/test_regressions.py::test_consensus_calls_provider_contract FAILED [ 40%]
+tests/sre/test_regressions.py::test_one_surviving_provider_is_not_high_consensus FAILED [ 60%]
+tests/sre/test_regressions.py::test_disabled_admin_api_is_not_an_authentication_bypass FAILED [ 80%]
+tests/sre/test_regressions.py::test_default_server_is_local_and_non_debug FAILED [100%]
+
+=================================== FAILURES ===================================
+____________ test_crawler_import_and_parse_without_second_download _____________
+<repo>/tests/sre/test_regressions.py:13: in test_crawler_import_and_parse_without_second_download
+    import crawler_unified
+<repo>/scripts/crawler_unified.py:17: in <module>
+    from config import ensure_dir
+E   ImportError: cannot import name 'ensure_dir' from 'config' (<repo>/scripts/config/__init__.py)
+____________________ test_consensus_calls_provider_contract ____________________
+<repo>/tests/sre/test_regressions.py:32: in test_consensus_calls_provider_contract
+    assert result["success"]
+E   assert False
+------------------------------ Captured log call -------------------------------
+INFO     llm.factory:factory.py:181 Registered 5 providers
+INFO     consensus_analyzer:consensus_analyzer.py:101 [gemini] Analyzing article...
+ERROR    consensus_analyzer:consensus_analyzer.py:117 [gemini] ✗ Analysis failed: Mock object has no attribute 'analyze'
+______________ test_one_surviving_provider_is_not_high_consensus _______________
+<repo>/tests/sre/test_regressions.py:46: in test_one_surviving_provider_is_not_high_consensus
+    assert result["total_providers"] == 2
+E   assert 1 == 2
+------------------------------ Captured log call -------------------------------
+INFO     consensus_analyzer:consensus_analyzer.py:267 ✓ Consensus calculated: 1 unique sentences from 1 providers
+___________ test_disabled_admin_api_is_not_an_authentication_bypass ____________
+<repo>/tests/sre/test_regressions.py:58: in test_disabled_admin_api_is_not_an_authentication_bypass
+    assert app.test_client().get("/admin/test").status_code == 404
+E   AssertionError: assert 200 == 404
+E    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+E    +    where <WrapperTestResponse streamed [200 OK]> = <bound method Client.get of <FlaskClient <Flask 'test_regressions'>>>('/admin/test')
+E    +      where <bound method Client.get of <FlaskClient <Flask 'test_regressions'>>> = <FlaskClient <Flask 'test_regressions'>>.get
+E    +        where <FlaskClient <Flask 'test_regressions'>> = <bound method Flask.test_client of <Flask 'test_regressions'>>()
+E    +          where <bound method Flask.test_client of <Flask 'test_regressions'>> = <Flask 'test_regressions'>.test_client
+__________________ test_default_server_is_local_and_non_debug __________________
+<repo>/tests/sre/test_regressions.py:65: in test_default_server_is_local_and_non_debug
+    assert settings.flask_host == "127.0.0.1"
+E   AssertionError: assert '0.0.0.0' == '127.0.0.1'
+E     - 127.0.0.1
+E     + 0.0.0.0
+=========================== short test summary info ============================
+FAILED tests/sre/test_regressions.py::test_crawler_import_and_parse_without_second_download
+FAILED tests/sre/test_regressions.py::test_consensus_calls_provider_contract
+FAILED tests/sre/test_regressions.py::test_one_surviving_provider_is_not_high_consensus
+FAILED tests/sre/test_regressions.py::test_disabled_admin_api_is_not_an_authentication_bypass
+FAILED tests/sre/test_regressions.py::test_default_server_is_local_and_non_debug
+========================= 5 failed, 1 warning in 2.17s =========================

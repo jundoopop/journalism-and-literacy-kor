@@ -39,7 +39,8 @@ class TestLogging:
         logger = get_logger("test_module")
         logger.info("Test message")
 
-        assert "test_module" in caplog.text
+        text = (log_dir / 'app.log').read_text()
+        assert 'test_module' in text
 
     def test_json_log_format(self, tmp_path):
         """Test that JSON log format produces valid JSON."""
@@ -50,14 +51,11 @@ class TestLogging:
         logger.info("Test JSON logging", extra={"custom_field": "value"})
 
         # Check that log file contains valid JSON
-        log_file = list(log_dir.glob("*.log"))[0]
-        with open(log_file) as f:
-            line = f.readline()
-            log_entry = json.loads(line)
+        entries = [json.loads(line) for line in (log_dir / 'app.log').read_text().splitlines()]
+        entry = next(item for item in entries if item['message'] == 'Test JSON logging')
+        assert entry['custom_field'] == 'value'
+        assert entry['timestamp'].endswith('Z')
 
-            assert "message" in log_entry
-            assert "timestamp" in log_entry
-            assert log_entry["message"] == "Test JSON logging"
 
 
 class TestCorrelationID:
@@ -117,7 +115,7 @@ class TestMetrics:
 
     def setup_method(self):
         """Reset metrics before each test."""
-        metrics._metrics.clear()
+        metrics.reset()
 
     def test_increment_counter(self):
         """Test incrementing a counter metric."""
@@ -126,8 +124,8 @@ class TestMetrics:
         metrics.increment("test_counter", value=3)
 
         summary = metrics.get_summary()
-        assert "test_counter" in summary
-        assert summary["test_counter"]["value"] == 5
+        assert "test_counter" in summary["counters"]
+        assert summary["counters"]["test_counter"]["default"] == 5
 
     def test_gauge_metric(self):
         """Test setting a gauge metric."""
@@ -135,8 +133,8 @@ class TestMetrics:
         metrics.gauge("test_gauge", 100.0)
 
         summary = metrics.get_summary()
-        assert "test_gauge" in summary
-        assert summary["test_gauge"]["value"] == 100.0
+        assert "test_gauge" in summary["gauges"]
+        assert summary["gauges"]["test_gauge"]["default"] == 100.0
 
     def test_timing_metric(self):
         """Test recording timing metrics."""
@@ -145,9 +143,9 @@ class TestMetrics:
         metrics.timing("test_latency", 50.0)
 
         summary = metrics.get_summary()
-        assert "test_latency" in summary
+        assert "test_latency" in summary["timings"]
 
-        timing_data = summary["test_latency"]
+        timing_data = summary["timings"]["test_latency"]["default"]
         assert timing_data["count"] == 3
         assert timing_data["avg"] == (123.45 + 200.0 + 50.0) / 3
 
@@ -155,23 +153,26 @@ class TestMetrics:
         """Test retrieving a specific metric."""
         metrics.increment("specific_metric", value=10)
 
-        metric = metrics.get_metric("specific_metric")
+        metric = metrics.get_summary()["counters"].get("specific_metric")
         assert metric is not None
-        assert metric["value"] == 10
+        assert metric["default"] == 10
 
     def test_get_nonexistent_metric(self):
         """Test retrieving a metric that doesn't exist."""
-        metric = metrics.get_metric("nonexistent")
+        metric = metrics.get_summary()["counters"].get("nonexistent")
         assert metric is None
 
     def test_metrics_with_labels(self):
         """Test metrics with labels."""
-        metrics.increment("requests", labels={"endpoint": "/analyze", "status": "200"})
-        metrics.increment("requests", labels={"endpoint": "/analyze", "status": "500"})
-        metrics.increment("requests", labels={"endpoint": "/health", "status": "200"})
+        metrics.increment("requests", tags={"endpoint": "/analyze", "status": "200"})
+        metrics.increment("requests", tags={"endpoint": "/analyze", "status": "500"})
+        metrics.increment("requests", tags={"endpoint": "/health", "status": "200"})
 
         summary = metrics.get_summary()
 
         # Should have separate metrics for different label combinations
-        assert "requests:endpoint=/analyze,status=200" in summary or \
-               any("requests" in key and "analyze" in key for key in summary.keys())
+        assert summary['counters']['requests'] == {
+            'endpoint=/analyze,status=200': 1,
+            'endpoint=/analyze,status=500': 1,
+            'endpoint=/health,status=200': 1,
+        }

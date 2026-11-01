@@ -1,0 +1,49 @@
+name: Project checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements-runtime.txt
+            requirements-dev.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest tests --junitxml=artifacts/pytest.xml
+      - run: node --test tests/extension.test.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: regression-results
+          path: artifacts/
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t news-literacy:test .
+      - name: Start without external credentials
+        run: |
+          docker run -d --name news-test -p 127.0.0.1:5001:5001 -e CACHE_ENABLED=False news-literacy:test
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:5001/healthz; then exit 0; fi
+            sleep 1
+          done
+          docker logs news-test
+          exit 1
+      - name: Check readiness and stop
+        run: |
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5001/readyz)" = "503"
+          docker stop --time 90 news-test
+      - run: docker logs news-test
+        if: always()

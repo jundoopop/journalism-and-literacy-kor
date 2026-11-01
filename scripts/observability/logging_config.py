@@ -10,6 +10,7 @@ Provides consistent logging across all components with:
 """
 
 import logging
+from datetime import datetime, timezone
 import logging.handlers
 import os
 import sys
@@ -49,7 +50,7 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
 
         # Add timestamp in ISO format
         if not log_record.get('timestamp'):
-            log_record['timestamp'] = self.formatTime(record, self.datefmt)
+            log_record['timestamp'] = datetime.fromtimestamp(record.created, timezone.utc).isoformat().replace('+00:00', 'Z')
 
         # Add level name
         log_record['level'] = record.levelname
@@ -174,7 +175,18 @@ def setup_logging(
     )
 
 
-def get_logger(name: str) -> logging.Logger:
+class StructuredLogger(logging.LoggerAdapter):
+    """Accept structured fields while preserving standard logging kwargs."""
+    def process(self, msg, kwargs):
+        extra = dict(kwargs.pop('extra', {}) or {})
+        for key in list(kwargs):
+            if key not in {'exc_info', 'stack_info', 'stacklevel'}:
+                extra[key] = kwargs.pop(key)
+        kwargs['extra'] = extra
+        return msg, kwargs
+
+
+def get_logger(name: str) -> logging.LoggerAdapter:
     """
     Get a logger instance for a component.
 
@@ -188,4 +200,4 @@ def get_logger(name: str) -> logging.Logger:
         logger = get_logger(__name__)
         logger.info("Processing started", extra={'url': article_url})
     """
-    return logging.getLogger(name)
+    return StructuredLogger(logging.getLogger(name), {})

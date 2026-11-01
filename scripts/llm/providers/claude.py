@@ -1,7 +1,7 @@
 """
 Anthropic Claude provider implementation
 
-Uses claude-4.5-haiku model (NEWEST 2025).
+Uses Claude Haiku with a valid, pinned model ID.
 Fastest Claude model with excellent coding capability.
 """
 
@@ -21,7 +21,7 @@ class ClaudeProvider(BaseLLMProvider):
 
         try:
             # Initialize Anthropic client
-            self.client = Anthropic(api_key=self.config.api_key)
+            self.client = Anthropic(api_key=self.config.api_key, timeout=self.config.timeout, max_retries=0)
 
             self.logger.info(f"Claude initialized with model: {self.config.model_name}")
         except Exception as e:
@@ -54,7 +54,9 @@ class ClaudeProvider(BaseLLMProvider):
                 ]
             )
 
-            return message.content[0].text
+            if message.stop_reason != "end_turn":
+                raise LLMProviderError("Claude returned incomplete output")
+            return "".join(block.text for block in message.content if block.type == "text")
 
         except Exception as e:
             self.logger.error(f"Claude API call failed: {e}")
@@ -87,7 +89,8 @@ class ClaudeProvider(BaseLLMProvider):
             raw_response = self._call_api(article_text, system_prompt)
 
             # Parse JSON response
-            sentences = self._parse_json_response(raw_response)
+            sentences = self._validate_sentences(
+                self._parse_json_response(raw_response), article_text)
 
             self.logger.info(f"Successfully extracted {len(sentences)} sentences")
 

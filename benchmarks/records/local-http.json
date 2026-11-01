@@ -1,0 +1,2189 @@
+{
+  "source_sha256": {
+    "benchmarks/fixture_app.py": "04c68842376070548a956530be21c42d3161b8504579524cffd0416d680d9b1e",
+    "benchmarks/http_load.py": "751c44c8103d152547ac746e33dde8a2302dec5d91d9badc3eab3a5e67d05154",
+    "gunicorn.conf.py": "f2d6f16516f461b5987d0ba649e566f3757a80201a0cccf1dada15cab574dae9",
+    "scripts/api/__init__.py": "b57cc5b9b70caf057ca453e3adc08642e8c4ecedc9ed84bc826d496a4e658344",
+    "scripts/api/errors.py": "888be34d5c2e91bc20d7e0355efb76bc1e68fadb4522efbc07fcd32ac798e707",
+    "scripts/api/middleware.py": "30fd1c6a1a4bb34616c39f3df3064db4282337d5a9e67462514095881e5ab9e8",
+    "scripts/api/validation.py": "4faf40a6c2fd784d59d4a01c1deb21be8321c2d662ba1356d7845eb329bc219b",
+    "scripts/benchmark/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "scripts/benchmark/cli.py": "5665bf6c2d041dd61daa3f05a81630425723b1f9fccde2054e4169d1c4c15350",
+    "scripts/benchmark/data_loader.py": "c3d7897a82200a4c00d5c4c4cc27eea2b48d808db2bf43e4b11719462f3cb876",
+    "scripts/benchmark/experiment_runner.py": "a0143e1b17afc6db2e8ea79627ac47e5574836ca4e6b330c25d67bf7500ea546",
+    "scripts/benchmark/metrics.py": "69ab26595a6958f7a364fdba58de3f8be547f3caed9a7a035071c85069c6460e",
+    "scripts/benchmark/results_analyzer.py": "15d3dce3a26aba4922cd0ff261ee72a0112f4bb0ad5cf15e2667f7cb8c945248",
+    "scripts/cleaner.py": "25998d4b03504aaa68b92f5732f2efbed48513d92580d9c1b98a7369ccf6ce85",
+    "scripts/config/__init__.py": "7a4d4b82da7d4fb7aa5bef342d1f356e21405cc498bdd5ccc221113e1439fc1c",
+    "scripts/config/settings.py": "9184ca69182de6a95ed69ff063249c64cd68f3553c2fb550079d70d673e9c5a9",
+    "scripts/consensus_analyzer.py": "392fea466e204f30f9ca61119a45f22d2628b9663394b7ffbb03096bf829c981",
+    "scripts/crawler.py": "4b961e98f4ada57dad61d9c262306edff4d3fb5b0d73537d584027f010f19d1b",
+    "scripts/crawler_chosun.py": "c735e5d548549933224bfc95b84956f96e6d9d6d43e416015a548864e1169778",
+    "scripts/crawler_hani.py": "e36800292df81f4a1e474e1cc36a99b41672986b1bb03b563a4e4f3429ba2d31",
+    "scripts/crawler_hankook.py": "dfc1333c96c293c3116886a910aa9baa773e1d9dead92165032ba9a9a1ba9c86",
+    "scripts/crawler_joongang.py": "74496e97c65302814904411c3a14cb1c9d753e8f3b50175302790c9b3a2c191e",
+    "scripts/crawler_khan.py": "e735272ed33ebb1471a9225764715a2d35e013d4d81fa8213e81732d7fbb256d",
+    "scripts/crawler_unified.py": "9373c41d9cca2286aa3807315017c8fb66783c368dd3d8a42eec26034e4c4a79",
+    "scripts/crawlers/__init__.py": "0f424148d1258b80b8037b49e6878dcc011001010998cd5e30d4012af96e6c04",
+    "scripts/crawlers/base.py": "dcd192e0b6a7cfd6751a46da948aad5e4da00317ce53b7f5e321044507762db7",
+    "scripts/crawlers/plugins/__init__.py": "32de0c75f3625e0aa90a1d9e7697e8e5df1e901212e3cd97b49d8a8a6e437961",
+    "scripts/crawlers/plugins/generic.py": "cb0bc8754ebd7386953b15e3067152e4b01145b702f66c338e0500d060373e69",
+    "scripts/crawlers/registry.py": "822ca7ec6708b582c1ac51e6c6f900cbf930ab131b34569a86984580a219ff4e",
+    "scripts/database/__init__.py": "eb24cb2d694680a76664386f61391ef100e3362081a2baca14a56961015d711f",
+    "scripts/database/init_db.py": "db955693e33039436ad2c6af5cf8d27600d3741347901fa2b8c5a38f9899e243",
+    "scripts/database/models.py": "de31015bcb06305c6b32a9cfc39f227d0e543fc52a0f1b47e1750bf2603e1ff7",
+    "scripts/database/repository.py": "57851a206caa3bc3432641b0b08d5a6486c80a07df5f121498773a6b35da49cf",
+    "scripts/gemini_handler.py": "40a491687ec50a7980499d0292c4f1bfc622d6d24c940247b1847f3bed3f93d2",
+    "scripts/llm/__init__.py": "ad343cca0ab79a18b39ba4922d7e2d8b7357a4e1f0657cecc6b6a2ba6e0d9918",
+    "scripts/llm/base.py": "bc7282a939b00dab01a58e666007af59b325b0dd18273c9941831af1cc3cefbb",
+    "scripts/llm/config.py": "4f70e693855ffe1063aaaeefaf07cc645ddd858b197bee15df1d3073168d6a37",
+    "scripts/llm/exceptions.py": "396078a9f8fd40ea15a4eb367a02d5ff9e6e4dc5f08fd242ea50fb4ee73a3293",
+    "scripts/llm/factory.py": "dbf910c318f1b066e8c359878dac263176bbe24ab67908b9839e871133fb4738",
+    "scripts/llm/prompts/__init__.py": "45f3f98c2ac2254c6614c0fb3e460f5d9b1bc00e884bbc1a92d6cec745bcb802",
+    "scripts/llm/prompts/article_analysis.py": "f69ef518885de8a4e5d5eb55f682eea3ea1cf25cfed52b6f5bf42f194a939927",
+    "scripts/llm/prompts/prompt_manager.py": "4a40c821ff9c42cc49ef130857b2d042effe6db02b5d03eca81af175144c3da4",
+    "scripts/llm/providers/__init__.py": "cd6d58c060da40f65b788eecfb0bd2cda5a54ac16249b4c2f191eb97d246f504",
+    "scripts/llm/providers/claude.py": "c86f032058ac0faafcb834723e8ef65ccb060b9458b14855907afecce7bcefcf",
+    "scripts/llm/providers/gemini.py": "c03d6f185c91057d1c7660c9acfc62801dde604845ab21a5089a37ce10b3bdcb",
+    "scripts/llm/providers/llama.py": "3ae5364e9102ee20d28af0080f1bddfd23b84e6107e8a93f68314987fc6f5b59",
+    "scripts/llm/providers/mistral.py": "03e177ed9ecde0066ce95366097520c3eb1156a0e5f0e6251cc5b86cadae3a9c",
+    "scripts/llm/providers/openai_provider.py": "0a3b64e227373eae9a5a2bcb1f43da59ffd4c78c553cf767edf48d7e2d9d1938",
+    "scripts/llm/utils/__init__.py": "5fe77df1708c7cc6273fd525515ac81e35b71a462bf1ac3c3f5411e224f72dd8",
+    "scripts/llm/utils/security.py": "370407d2f30f857e30a1f205b3e14ba822177ded1715cfaf3595b912469c5bff",
+    "scripts/llm_tuner.py": "ea8a93b40b50ed59f7df03988df8f0795a68a5aa4e44c1944a2096bd3d9f7565",
+    "scripts/metrics_baseline.py": "c2428feac7801ad23359c745f4fa92ad2a8898aa50f6d5284063d74257e76406",
+    "scripts/native_host.py": "41bba3a1fd96239c16fb4538a9d946ec90ca71cec87a75f20f18e2f43cff4f52",
+    "scripts/observability/__init__.py": "25f5f82ee32645de0f342de2ca66124f1157f0efb94fd804aeb78efc1a59f6d7",
+    "scripts/observability/context.py": "055fdcfc9a6877dc01445901e36608674302eceac84770cd5fef00ca9ffc43d7",
+    "scripts/observability/http_metrics.py": "5241e364c50b52ca5f7437df52f4f5c01d64e4a91369b9e77809a4fb689e0bfb",
+    "scripts/observability/logging_config.py": "2684681c8f387a8148c6932ae8da4496df898345da0b75d7b32bfd2e576ba661",
+    "scripts/observability/metrics.py": "f1a11af36d3b3820812d41db6cbe78732d15caf53065c25dfc72d5a3f432f570",
+    "scripts/server.py": "c6b9162151e06989ff3a6ded9210527fd111cf7e32cbed0cfea78722acc0b626",
+    "scripts/services/__init__.py": "a8cd834148ffe94d09ecadf52316854baebdc31cf87b545492016e10b5c0deaa",
+    "scripts/services/analysis_service.py": "3161b80c8f43ebb6e02355ce64a7ceafbff328f6011e0289143a0dab92850329",
+    "scripts/services/base_service.py": "c6b73732145922ad453aa968464d268ed897bb87880c117f51aa08f498d6790c",
+    "scripts/services/cache_service.py": "be6c4bf1280b529a8c1c91a9f37e67b7d1dcea3af4e2aaee5e44861746cfa7ab",
+    "scripts/services/crawler_service.py": "469d0bc56562b84ee1871b21d0585b893bd34956b4c414839f43f2c588c53198",
+    "scripts/services/feature_flags_service.py": "3aefb7ca3e0e796f11f7046bd249a21027c45ee75bc5bc33197e11d91ba77911",
+    "scripts/services/health_service.py": "a24f7276e625faf521fd3198bc873f04fc45dc22496dcfd2e54f5c078574b5ba",
+    "scripts/test_api_connection.py": "c5c8f111d7b2c4708917bcde2068dccbb9fa84afb2be43a810d16b65d94473b5",
+    "scripts/tools/__init__.py": "b140c7241eb3d8c96323f4ec92045972dad4cf448c210a6d73a2cf4bae19ee53",
+    "scripts/tools/cache_admin.py": "7e87da6b5147cc8e54e3e81a0ba31a03b2a94edbf76e4d9fdabd1e85313bf197",
+    "scripts/tools/feature_flags.py": "7c60a4f88df731580c2a88d57864a2acff0e05dec39c36496a441e5930ecb57e",
+    "scripts/tools/view_logs.py": "9386c195764e26dc5cc9e14e7d7dd79193f6282b01e166485d1f96c5ebc58577",
+    "scripts/tools/view_metrics.py": "f1a6c08fce00d32eef5ac088778e9d19a5971feee0007c980765239993447f1d",
+    "scripts/url_safety.py": "97a93ce4d40d4ceac342b2130269f66d16bf0d34e5b00b33c8325cc85f619b65"
+  },
+  "dependencies": {
+    "flask": "3.0.0",
+    "gunicorn": "23.0.0",
+    "sqlalchemy": "2.0.25",
+    "pydantic": "2.10.4",
+    "prometheus-client": "0.21.1"
+  },
+  "timestamp": "2026-10-04T13:59:15.906762+00:00",
+  "platform": "macOS-27.2-arm64-arm-64bit",
+  "python": "3.12.14",
+  "cpu_count": 8,
+  "fixture": "2 parallel fake providers, 50ms each",
+  "scope": "real local HTTP, parser, consensus, SQLite; no live LLM/news/Redis",
+  "baseline": "same repaired code, 1 HTTP thread; not the broken original app",
+  "runs": [
+    {
+      "threads": 1,
+      "clients": 1,
+      "repeat": 1,
+      "requests": 40,
+      "errors": 0,
+      "elapsed_s": 2.7023072910378687,
+      "throughput_rps": 14.802165591107626,
+      "p50_ms": 66.66499999118969,
+      "p95_ms": 80.6241249665618,
+      "p99_ms": 82.95129198813811,
+      "samples": [
+        {
+          "latency_ms": 81.62354200612754,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.92258398793638,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.4816659623757,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.54495799355209,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.44766697334126,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.85833395365626,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.12862497381866,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.28716697357595,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.80770800448954,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.29116699332371,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.29108397848904,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.11524998536333,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.96333299623802,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.94774999050424,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.45108299562708,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.79487496148795,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.15695798629895,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.16183400526643,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.61837502522394,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.49225000385195,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.02266697539017,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.214916984085,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.1352090430446,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.9087499845773,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.60412502242252,
+          "status": 200
+        },
+        {
+          "latency_ms": 62.27004196261987,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.58325001969934,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.20249996194616,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.0135419932194,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.66499999118969,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.85641699004918,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.50391698349267,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.994666995015,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.54579099267721,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.03487505344674,
+          "status": 200
+        },
+        {
+          "latency_ms": 68.08100000489503,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.4247500137426,
+          "status": 200
+        },
+        {
+          "latency_ms": 80.6241249665618,
+          "status": 200
+        },
+        {
+          "latency_ms": 82.95129198813811,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.35170902498066,
+          "status": 200
+        }
+      ]
+    },
+    {
+      "threads": 1,
+      "clients": 1,
+      "repeat": 2,
+      "requests": 40,
+      "errors": 0,
+      "elapsed_s": 2.681799083016813,
+      "throughput_rps": 14.915360458324548,
+      "p50_ms": 66.79749995237216,
+      "p95_ms": 67.56316701648757,
+      "p99_ms": 85.20762500120327,
+      "samples": [
+        {
+          "latency_ms": 59.43274998571724,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.57100004283711,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.21262495173141,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.56908403197303,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.05958303064108,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.00808397727087,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.24537502648309,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.87649997184053,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.15279095806181,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.36912502674386,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.56316701648757,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.85291598457843,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.82816700777039,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.79749995237216,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.92545802798122,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.18108397722244,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.64383399765939,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.28537498181686,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.00545799685642,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.06729100551456,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.09291699714959,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.04904197249562,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.00779194943607,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.12079199496657,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.89541699597612,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.59737497102469,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.70558400219306,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.40075001632795,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.12866699974984,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.61400001030415,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.7777499766089,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.3660000320524,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.28516600560397,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.50870804535225,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.79766596062109,
+          "status": 200
+        },
+        {
+          "latency_ms": 85.20762500120327,
+          "status": 200
+        },
+        {
+          "latency_ms": 74.64920898200944,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.51970797590911,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.6121660140343,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.97845797659829,
+          "status": 200
+        }
+      ]
+    },
+    {
+      "threads": 1,
+      "clients": 1,
+      "repeat": 3,
+      "requests": 40,
+      "errors": 0,
+      "elapsed_s": 2.673287542012986,
+      "throughput_rps": 14.962849813709152,
+      "p50_ms": 66.48275000043213,
+      "p95_ms": 67.58204201469198,
+      "p99_ms": 89.79441702831537,
+      "samples": [
+        {
+          "latency_ms": 66.29133300157264,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.50833296589553,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.16441695950925,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.11087505007163,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.33416697150096,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.58829196728766,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.41783397551626,
+          "status": 200
+        },
+        {
+          "latency_ms": 62.57108296267688,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.24654203187674,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.48275000043213,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.58204201469198,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.22708302550018,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.92645902512595,
+          "status": 200
+        },
+        {
+          "latency_ms": 89.79441702831537,
+          "status": 200
+        },
+        {
+          "latency_ms": 63.90600005397573,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.06095802271739,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.05458399280906,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.00579200312495,
+          "status": 200
+        },
+        {
+          "latency_ms": 62.39445798564702,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.06358300289139,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.6751250391826,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.86345802154392,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.49520801147446,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.55420904280618,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.28399998974055,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.02808401314542,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.79558398900554,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.09829100873321,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.91991700790823,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.67870900128037,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.63533399114385,
+          "status": 200
+        },
+        {
+          "latency_ms": 63.39545804075897,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.64187496062368,
+          "status": 200
+        },
+        {
+          "latency_ms": 77.31687498744577,
+          "status": 200
+        },
+        {
+          "latency_ms": 61.68529199203476,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.69962501432747,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.6119579798542,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.60362498182803,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.63229200057685,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.04491599136963,
+          "status": 200
+        }
+      ]
+    },
+    {
+      "threads": 1,
+      "clients": 8,
+      "repeat": 1,
+      "requests": 40,
+      "errors": 0,
+      "elapsed_s": 2.667701083002612,
+      "throughput_rps": 14.994183664302556,
+      "p50_ms": 532.8302079578862,
+      "p95_ms": 536.5865420317277,
+      "p99_ms": 539.9397920118645,
+      "samples": [
+        {
+          "latency_ms": 134.37716598855332,
+          "status": 200
+        },
+        {
+          "latency_ms": 201.50370796909556,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.15650000842288,
+          "status": 200
+        },
+        {
+          "latency_ms": 268.0749589926563,
+          "status": 200
+        },
+        {
+          "latency_ms": 333.6896669934504,
+          "status": 200
+        },
+        {
+          "latency_ms": 467.551082954742,
+          "status": 200
+        },
+        {
+          "latency_ms": 400.2260830020532,
+          "status": 200
+        },
+        {
+          "latency_ms": 532.5542920036241,
+          "status": 200
+        },
+        {
+          "latency_ms": 532.7693339786492,
+          "status": 200
+        },
+        {
+          "latency_ms": 532.8852910315618,
+          "status": 200
+        },
+        {
+          "latency_ms": 532.7612920082174,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.4435420227237,
+          "status": 200
+        },
+        {
+          "latency_ms": 531.3125840038992,
+          "status": 200
+        },
+        {
+          "latency_ms": 531.5854170476086,
+          "status": 200
+        },
+        {
+          "latency_ms": 531.5445840242319,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.1659580115229,
+          "status": 200
+        },
+        {
+          "latency_ms": 532.8408749774098,
+          "status": 200
+        },
+        {
+          "latency_ms": 532.8861669986509,
+          "status": 200
+        },
+        {
+          "latency_ms": 532.8302079578862,
+          "status": 200
+        },
+        {
+          "latency_ms": 532.9135420033708,
+          "status": 200
+        },
+        {
+          "latency_ms": 536.5865420317277,
+          "status": 200
+        },
+        {
+          "latency_ms": 535.9762909938581,
+          "status": 200
+        },
+        {
+          "latency_ms": 535.4117079987191,
+          "status": 200
+        },
+        {
+          "latency_ms": 535.0069580017589,
+          "status": 200
+        },
+        {
+          "latency_ms": 535.2347500156611,
+          "status": 200
+        },
+        {
+          "latency_ms": 534.9574160063639,
+          "status": 200
+        },
+        {
+          "latency_ms": 534.5873750047758,
+          "status": 200
+        },
+        {
+          "latency_ms": 534.0162500506267,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.44237501733,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.756209013518,
+          "status": 200
+        },
+        {
+          "latency_ms": 534.1192909982055,
+          "status": 200
+        },
+        {
+          "latency_ms": 539.9397920118645,
+          "status": 200
+        },
+        {
+          "latency_ms": 537.0806670398451,
+          "status": 200
+        },
+        {
+          "latency_ms": 534.2549999477342,
+          "status": 200
+        },
+        {
+          "latency_ms": 532.7834160416387,
+          "status": 200
+        },
+        {
+          "latency_ms": 531.5990409580991,
+          "status": 200
+        },
+        {
+          "latency_ms": 531.1970000038855,
+          "status": 200
+        },
+        {
+          "latency_ms": 530.933375004679,
+          "status": 200
+        },
+        {
+          "latency_ms": 530.910707951989,
+          "status": 200
+        },
+        {
+          "latency_ms": 525.6730829714797,
+          "status": 200
+        }
+      ]
+    },
+    {
+      "threads": 1,
+      "clients": 8,
+      "repeat": 2,
+      "requests": 40,
+      "errors": 0,
+      "elapsed_s": 2.682216959015932,
+      "throughput_rps": 14.913036719697516,
+      "p50_ms": 533.1925000064075,
+      "p95_ms": 548.8130419980735,
+      "p99_ms": 549.1982499952428,
+      "samples": [
+        {
+          "latency_ms": 67.66962504480034,
+          "status": 200
+        },
+        {
+          "latency_ms": 200.69270802196115,
+          "status": 200
+        },
+        {
+          "latency_ms": 134.19774995418265,
+          "status": 200
+        },
+        {
+          "latency_ms": 267.34650001162663,
+          "status": 200
+        },
+        {
+          "latency_ms": 467.5646669929847,
+          "status": 200
+        },
+        {
+          "latency_ms": 333.96204095333815,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.7587090325542,
+          "status": 200
+        },
+        {
+          "latency_ms": 400.60108300531283,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.759249956347,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.1925000064075,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.563208009582,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.7751249899156,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.018667018041,
+          "status": 200
+        },
+        {
+          "latency_ms": 531.8834999925457,
+          "status": 200
+        },
+        {
+          "latency_ms": 531.6612079623155,
+          "status": 200
+        },
+        {
+          "latency_ms": 531.7271659732796,
+          "status": 200
+        },
+        {
+          "latency_ms": 531.9411249947734,
+          "status": 200
+        },
+        {
+          "latency_ms": 532.9285839688964,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.5785840288736,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.5977909853682,
+          "status": 200
+        },
+        {
+          "latency_ms": 534.259625012055,
+          "status": 200
+        },
+        {
+          "latency_ms": 534.7354999976233,
+          "status": 200
+        },
+        {
+          "latency_ms": 535.0470419507474,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.3549159695394,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.3539579878561,
+          "status": 200
+        },
+        {
+          "latency_ms": 532.3716250131838,
+          "status": 200
+        },
+        {
+          "latency_ms": 531.2161659821868,
+          "status": 200
+        },
+        {
+          "latency_ms": 530.9382909908891,
+          "status": 200
+        },
+        {
+          "latency_ms": 530.7123339734972,
+          "status": 200
+        },
+        {
+          "latency_ms": 539.6472499705851,
+          "status": 200
+        },
+        {
+          "latency_ms": 548.8757499842905,
+          "status": 200
+        },
+        {
+          "latency_ms": 549.1982499952428,
+          "status": 200
+        },
+        {
+          "latency_ms": 548.0373330065049,
+          "status": 200
+        },
+        {
+          "latency_ms": 548.0378749780357,
+          "status": 200
+        },
+        {
+          "latency_ms": 548.1904580374248,
+          "status": 200
+        },
+        {
+          "latency_ms": 548.3393750037067,
+          "status": 200
+        },
+        {
+          "latency_ms": 548.8130419980735,
+          "status": 200
+        },
+        {
+          "latency_ms": 540.5323750455864,
+          "status": 200
+        },
+        {
+          "latency_ms": 531.300833041314,
+          "status": 200
+        },
+        {
+          "latency_ms": 532.7729170094244,
+          "status": 200
+        }
+      ]
+    },
+    {
+      "threads": 1,
+      "clients": 8,
+      "repeat": 3,
+      "requests": 40,
+      "errors": 0,
+      "elapsed_s": 2.6841524170013145,
+      "throughput_rps": 14.902283397411262,
+      "p50_ms": 532.0807499811053,
+      "p95_ms": 568.0610410054214,
+      "p99_ms": 570.3618750558235,
+      "samples": [
+        {
+          "latency_ms": 200.98991703707725,
+          "status": 200
+        },
+        {
+          "latency_ms": 133.86429200181738,
+          "status": 200
+        },
+        {
+          "latency_ms": 266.8841249542311,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.74970797030255,
+          "status": 200
+        },
+        {
+          "latency_ms": 326.248083030805,
+          "status": 200
+        },
+        {
+          "latency_ms": 390.33099997323006,
+          "status": 200
+        },
+        {
+          "latency_ms": 455.25704097235575,
+          "status": 200
+        },
+        {
+          "latency_ms": 516.0812090034597,
+          "status": 200
+        },
+        {
+          "latency_ms": 516.9735840172507,
+          "status": 200
+        },
+        {
+          "latency_ms": 517.0937909861095,
+          "status": 200
+        },
+        {
+          "latency_ms": 517.1788340085186,
+          "status": 200
+        },
+        {
+          "latency_ms": 517.8100829944015,
+          "status": 200
+        },
+        {
+          "latency_ms": 525.3772499854676,
+          "status": 200
+        },
+        {
+          "latency_ms": 528.5154579905793,
+          "status": 200
+        },
+        {
+          "latency_ms": 528.9355000131764,
+          "status": 200
+        },
+        {
+          "latency_ms": 534.8293330171145,
+          "status": 200
+        },
+        {
+          "latency_ms": 534.6427080221474,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.6912089842372,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.2892920123413,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.709249983076,
+          "status": 200
+        },
+        {
+          "latency_ms": 534.2899590032175,
+          "status": 200
+        },
+        {
+          "latency_ms": 532.0807499811053,
+          "status": 200
+        },
+        {
+          "latency_ms": 534.4253750517964,
+          "status": 200
+        },
+        {
+          "latency_ms": 534.851250005886,
+          "status": 200
+        },
+        {
+          "latency_ms": 535.2444580057636,
+          "status": 200
+        },
+        {
+          "latency_ms": 533.4277499932796,
+          "status": 200
+        },
+        {
+          "latency_ms": 532.6976249925792,
+          "status": 200
+        },
+        {
+          "latency_ms": 564.5355830201879,
+          "status": 200
+        },
+        {
+          "latency_ms": 570.0550420442596,
+          "status": 200
+        },
+        {
+          "latency_ms": 570.3618750558235,
+          "status": 200
+        },
+        {
+          "latency_ms": 568.0610410054214,
+          "status": 200
+        },
+        {
+          "latency_ms": 566.589166992344,
+          "status": 200
+        },
+        {
+          "latency_ms": 563.0773340235464,
+          "status": 200
+        },
+        {
+          "latency_ms": 565.3471670229919,
+          "status": 200
+        },
+        {
+          "latency_ms": 565.83999999566,
+          "status": 200
+        },
+        {
+          "latency_ms": 532.744417025242,
+          "status": 200
+        },
+        {
+          "latency_ms": 526.3645420200191,
+          "status": 200
+        },
+        {
+          "latency_ms": 528.0562079860829,
+          "status": 200
+        },
+        {
+          "latency_ms": 530.0579169997945,
+          "status": 200
+        },
+        {
+          "latency_ms": 530.2025839919224,
+          "status": 200
+        }
+      ]
+    },
+    {
+      "threads": 8,
+      "clients": 1,
+      "repeat": 1,
+      "requests": 40,
+      "errors": 0,
+      "elapsed_s": 2.700564208033029,
+      "throughput_rps": 14.811719669918244,
+      "p50_ms": 66.65804103249684,
+      "p95_ms": 68.60070902621374,
+      "p99_ms": 107.06549999304116,
+      "samples": [
+        {
+          "latency_ms": 73.13775003422052,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.13491703663021,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.44379203114659,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.45049998769537,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.42225000541657,
+          "status": 200
+        },
+        {
+          "latency_ms": 62.2720830142498,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.49670801218599,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.96637499751523,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.80812495667487,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.35016702441499,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.58387499535456,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.00758403167129,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.90737494500354,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.87050004256889,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.49595801718533,
+          "status": 200
+        },
+        {
+          "latency_ms": 60.39279198739678,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.65804103249684,
+          "status": 200
+        },
+        {
+          "latency_ms": 62.41687497822568,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.7027920242399,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.94500002777204,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.49233301868662,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.16754200169817,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.06358399242163,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.82233302854002,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.47862499812618,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.74741598544642,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.45716597652063,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.24783300887793,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.6132079679519,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.26608402095735,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.15166702633724,
+          "status": 200
+        },
+        {
+          "latency_ms": 62.340290984138846,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.68016698677093,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.00095802079886,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.66045799991116,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.63033302174881,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.19637500261888,
+          "status": 200
+        },
+        {
+          "latency_ms": 107.06549999304116,
+          "status": 200
+        },
+        {
+          "latency_ms": 68.60070902621374,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.31970901414752,
+          "status": 200
+        }
+      ]
+    },
+    {
+      "threads": 8,
+      "clients": 1,
+      "repeat": 2,
+      "requests": 40,
+      "errors": 0,
+      "elapsed_s": 2.6877021249965765,
+      "throughput_rps": 14.882601620166874,
+      "p50_ms": 66.56245799968019,
+      "p95_ms": 67.96950002899393,
+      "p99_ms": 108.28308301279321,
+      "samples": [
+        {
+          "latency_ms": 65.68304204847664,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.70166698656976,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.34141696849838,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.35733298026025,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.5737499948591,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.20170798851177,
+          "status": 200
+        },
+        {
+          "latency_ms": 62.0443329680711,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.74387498060241,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.10725005157292,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.77891698200256,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.4636250003241,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.47174997488037,
+          "status": 200
+        },
+        {
+          "latency_ms": 60.788625036366284,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.46795803681016,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.39766698936,
+          "status": 200
+        },
+        {
+          "latency_ms": 56.36895803036168,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.64404197363183,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.18537502456456,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.22704198909923,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.20712501555681,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.71150005422533,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.65120797697455,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.19045900879428,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.34129099640995,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.89604202983901,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.80270901415497,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.56245799968019,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.23624999681488,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.92474998999387,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.513333003968,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.95970799773932,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.39912502234802,
+          "status": 200
+        },
+        {
+          "latency_ms": 63.74829198466614,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.3053750069812,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.96950002899393,
+          "status": 200
+        },
+        {
+          "latency_ms": 108.28308301279321,
+          "status": 200
+        },
+        {
+          "latency_ms": 71.28729100804776,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.4971250332892,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.22129102470353,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.63516699336469,
+          "status": 200
+        }
+      ]
+    },
+    {
+      "threads": 8,
+      "clients": 1,
+      "repeat": 3,
+      "requests": 40,
+      "errors": 0,
+      "elapsed_s": 2.669883624999784,
+      "throughput_rps": 14.981926412617792,
+      "p50_ms": 66.60695897880942,
+      "p95_ms": 67.33133300440386,
+      "p99_ms": 83.08183401823044,
+      "samples": [
+        {
+          "latency_ms": 66.73566700192168,
+          "status": 200
+        },
+        {
+          "latency_ms": 61.22254201909527,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.49666704470292,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.26012496417388,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.4692500140518,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.83762500667945,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.91374997515231,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.95658301375806,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.1542090238072,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.30162498913705,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.76429196866229,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.57420799415559,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.00841699400917,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.68766698567197,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.5319999572821,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.87525002053007,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.84049998875707,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.60695897880942,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.797332954593,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.07554201036692,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.76629098365083,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.65975000942126,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.95604097330943,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.61674997303635,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.8457499705255,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.17575003858656,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.8725420255214,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.06612498965114,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.75479095429182,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.38987496262416,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.87816698104143,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.04570797551423,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.96762499632314,
+          "status": 200
+        },
+        {
+          "latency_ms": 83.08183401823044,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.51525002578273,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.84462500177324,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.02404202567413,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.43070804420859,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.73650001175702,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.33133300440386,
+          "status": 200
+        }
+      ]
+    },
+    {
+      "threads": 8,
+      "clients": 8,
+      "repeat": 1,
+      "requests": 40,
+      "errors": 0,
+      "elapsed_s": 0.36246687499806285,
+      "throughput_rps": 110.35491174252482,
+      "p50_ms": 66.25304097542539,
+      "p95_ms": 92.45479200035334,
+      "p99_ms": 118.43362497165799,
+      "samples": [
+        {
+          "latency_ms": 89.8407920030877,
+          "status": 200
+        },
+        {
+          "latency_ms": 86.165709013585,
+          "status": 200
+        },
+        {
+          "latency_ms": 92.45479200035334,
+          "status": 200
+        },
+        {
+          "latency_ms": 75.98533399868757,
+          "status": 200
+        },
+        {
+          "latency_ms": 100.94237502198666,
+          "status": 200
+        },
+        {
+          "latency_ms": 87.36637496622279,
+          "status": 200
+        },
+        {
+          "latency_ms": 80.91033296659589,
+          "status": 200
+        },
+        {
+          "latency_ms": 118.43362497165799,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.96554098743945,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.25304097542539,
+          "status": 200
+        },
+        {
+          "latency_ms": 70.01366704935208,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.33179204072803,
+          "status": 200
+        },
+        {
+          "latency_ms": 60.98191603086889,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.83575001079589,
+          "status": 200
+        },
+        {
+          "latency_ms": 61.31358299171552,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.44345903582871,
+          "status": 200
+        },
+        {
+          "latency_ms": 56.705125025473535,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.32158398861066,
+          "status": 200
+        },
+        {
+          "latency_ms": 68.30725003965199,
+          "status": 200
+        },
+        {
+          "latency_ms": 79.20958299655467,
+          "status": 200
+        },
+        {
+          "latency_ms": 68.43470799503848,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.56749999476597,
+          "status": 200
+        },
+        {
+          "latency_ms": 59.25095803104341,
+          "status": 200
+        },
+        {
+          "latency_ms": 59.53333398792893,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.59695799276233,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.58195799496025,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.45716696605086,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.50812498992309,
+          "status": 200
+        },
+        {
+          "latency_ms": 58.24004195164889,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.3532500253059,
+          "status": 200
+        },
+        {
+          "latency_ms": 62.61879100929946,
+          "status": 200
+        },
+        {
+          "latency_ms": 62.7130419597961,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.14279103046283,
+          "status": 200
+        },
+        {
+          "latency_ms": 54.731749987695366,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.72716601658612,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.13641697913408,
+          "status": 200
+        },
+        {
+          "latency_ms": 71.80295803118497,
+          "status": 200
+        },
+        {
+          "latency_ms": 59.087749978061765,
+          "status": 200
+        },
+        {
+          "latency_ms": 58.237125049345195,
+          "status": 200
+        },
+        {
+          "latency_ms": 55.98345794714987,
+          "status": 200
+        }
+      ]
+    },
+    {
+      "threads": 8,
+      "clients": 8,
+      "repeat": 2,
+      "requests": 40,
+      "errors": 0,
+      "elapsed_s": 0.41522979200817645,
+      "throughput_rps": 96.33220151797862,
+      "p50_ms": 66.27887504873797,
+      "p95_ms": 120.60012499568984,
+      "p99_ms": 167.1949999872595,
+      "samples": [
+        {
+          "latency_ms": 167.1949999872595,
+          "status": 200
+        },
+        {
+          "latency_ms": 75.29874995816499,
+          "status": 200
+        },
+        {
+          "latency_ms": 84.75404197815806,
+          "status": 200
+        },
+        {
+          "latency_ms": 98.7984579987824,
+          "status": 200
+        },
+        {
+          "latency_ms": 76.68158400338143,
+          "status": 200
+        },
+        {
+          "latency_ms": 142.22662500105798,
+          "status": 200
+        },
+        {
+          "latency_ms": 79.64687497587875,
+          "status": 200
+        },
+        {
+          "latency_ms": 120.60012499568984,
+          "status": 200
+        },
+        {
+          "latency_ms": 73.90320900594816,
+          "status": 200
+        },
+        {
+          "latency_ms": 68.32258403301239,
+          "status": 200
+        },
+        {
+          "latency_ms": 76.90070901298895,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.30670798383653,
+          "status": 200
+        },
+        {
+          "latency_ms": 63.87725000968203,
+          "status": 200
+        },
+        {
+          "latency_ms": 55.35066599259153,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.39354197634384,
+          "status": 200
+        },
+        {
+          "latency_ms": 79.66404099715874,
+          "status": 200
+        },
+        {
+          "latency_ms": 63.6906250147149,
+          "status": 200
+        },
+        {
+          "latency_ms": 67.24391703028232,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.98516600206494,
+          "status": 200
+        },
+        {
+          "latency_ms": 57.98799998592585,
+          "status": 200
+        },
+        {
+          "latency_ms": 61.07683398295194,
+          "status": 200
+        },
+        {
+          "latency_ms": 63.93533298978582,
+          "status": 200
+        },
+        {
+          "latency_ms": 71.13774999743327,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.7297499817796,
+          "status": 200
+        },
+        {
+          "latency_ms": 72.46175000909716,
+          "status": 200
+        },
+        {
+          "latency_ms": 82.99349999288097,
+          "status": 200
+        },
+        {
+          "latency_ms": 59.261374990455806,
+          "status": 200
+        },
+        {
+          "latency_ms": 62.10066698258743,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.93295804830268,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.89962495490909,
+          "status": 200
+        },
+        {
+          "latency_ms": 77.1920420229435,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.60487502813339,
+          "status": 200
+        },
+        {
+          "latency_ms": 61.86266697477549,
+          "status": 200
+        },
+        {
+          "latency_ms": 59.2758750426583,
+          "status": 200
+        },
+        {
+          "latency_ms": 60.16408297000453,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.51379199279472,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.10458299797028,
+          "status": 200
+        },
+        {
+          "latency_ms": 63.19054099731147,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.27887504873797,
+          "status": 200
+        },
+        {
+          "latency_ms": 68.57737503014505,
+          "status": 200
+        }
+      ]
+    },
+    {
+      "threads": 8,
+      "clients": 8,
+      "repeat": 3,
+      "requests": 40,
+      "errors": 0,
+      "elapsed_s": 0.39829991600709036,
+      "throughput_rps": 100.42683513718828,
+      "p50_ms": 64.65091701829806,
+      "p95_ms": 97.21012500813231,
+      "p99_ms": 147.30433298973367,
+      "samples": [
+        {
+          "latency_ms": 97.21012500813231,
+          "status": 200
+        },
+        {
+          "latency_ms": 120.44025002978742,
+          "status": 200
+        },
+        {
+          "latency_ms": 147.30433298973367,
+          "status": 200
+        },
+        {
+          "latency_ms": 76.14791602827609,
+          "status": 200
+        },
+        {
+          "latency_ms": 84.96691699838266,
+          "status": 200
+        },
+        {
+          "latency_ms": 89.28058302262798,
+          "status": 200
+        },
+        {
+          "latency_ms": 81.947916012723,
+          "status": 200
+        },
+        {
+          "latency_ms": 73.21162504376844,
+          "status": 200
+        },
+        {
+          "latency_ms": 65.79645798774436,
+          "status": 200
+        },
+        {
+          "latency_ms": 88.61350000370294,
+          "status": 200
+        },
+        {
+          "latency_ms": 72.4735000403598,
+          "status": 200
+        },
+        {
+          "latency_ms": 58.374375046696514,
+          "status": 200
+        },
+        {
+          "latency_ms": 60.78045896720141,
+          "status": 200
+        },
+        {
+          "latency_ms": 61.27975002164021,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.65091701829806,
+          "status": 200
+        },
+        {
+          "latency_ms": 70.68599999183789,
+          "status": 200
+        },
+        {
+          "latency_ms": 62.26512498687953,
+          "status": 200
+        },
+        {
+          "latency_ms": 76.4996669604443,
+          "status": 200
+        },
+        {
+          "latency_ms": 62.119833019096404,
+          "status": 200
+        },
+        {
+          "latency_ms": 61.463332967832685,
+          "status": 200
+        },
+        {
+          "latency_ms": 61.29095901269466,
+          "status": 200
+        },
+        {
+          "latency_ms": 61.22691702330485,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.35541698010638,
+          "status": 200
+        },
+        {
+          "latency_ms": 62.45570897590369,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.44108303589746,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.22074998449534,
+          "status": 200
+        },
+        {
+          "latency_ms": 57.7835839940235,
+          "status": 200
+        },
+        {
+          "latency_ms": 60.73462497442961,
+          "status": 200
+        },
+        {
+          "latency_ms": 60.09666598401964,
+          "status": 200
+        },
+        {
+          "latency_ms": 62.216457969043404,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.36445901636034,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.7204999695532,
+          "status": 200
+        },
+        {
+          "latency_ms": 62.704125011805445,
+          "status": 200
+        },
+        {
+          "latency_ms": 76.36474998435006,
+          "status": 200
+        },
+        {
+          "latency_ms": 66.70841597951949,
+          "status": 200
+        },
+        {
+          "latency_ms": 60.92100002570078,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.79270802810788,
+          "status": 200
+        },
+        {
+          "latency_ms": 55.907542002387345,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.32245799805969,
+          "status": 200
+        },
+        {
+          "latency_ms": 64.92212502053007,
+          "status": 200
+        }
+      ]
+    }
+  ],
+  "graceful_shutdown": {
+    "inflight_request": {
+      "latency_ms": 1012.4271250097081,
+      "status": 200
+    },
+    "exit_code": 0,
+    "passed": true
+  }
+}
