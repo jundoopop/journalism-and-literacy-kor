@@ -109,7 +109,15 @@ def log_request_to_database(
         logger.error(f"Failed to log request to database: {e}")
 
 
-def log_analysis_to_database(provider: str, sentence_count: int, latency_ms: int, success: bool = True):
+def log_analysis_to_database(
+    provider: str,
+    sentence_count: int,
+    latency_ms: int | None,
+    success: bool = True,
+    model_name: str | None = None,
+    error_type: str | None = None,
+    error_message: str | None = None,
+):
     """Log analysis result to database."""
     try:
         with session_scope() as session:
@@ -119,10 +127,27 @@ def log_analysis_to_database(provider: str, sentence_count: int, latency_ms: int
                 provider=provider,
                 sentence_count=sentence_count,
                 latency_ms=latency_ms,
-                success=success
+                success=success,
+                model_name=model_name,
+                error_type=error_type,
+                error_message=error_message,
             )
     except Exception as e:
         logger.error(f"Failed to log analysis to database: {e}")
+
+
+def log_consensus_provider_metrics(provider_metrics):
+    """Persist observed calls only, without inventing samples on cache hits."""
+    for provider, observation in provider_metrics.items():
+        log_analysis_to_database(
+            provider=provider,
+            sentence_count=observation['sentence_count'],
+            latency_ms=observation['duration_ms'],
+            success=observation['success'],
+            model_name=observation.get('model'),
+            error_type=observation.get('error_type'),
+            error_message=observation.get('error'),
+        )
 
 
 # ============================================================================
@@ -369,14 +394,7 @@ def analyze_consensus_endpoint():
             use_cache=settings.enable_cache
         )
 
-        # Log each provider's result
-        for provider in consensus_result.successful_providers:
-            log_analysis_to_database(
-                provider=provider,
-                sentence_count=len(consensus_result.sentences),
-                latency_ms=consensus_result.total_duration_ms // len(consensus_result.successful_providers),
-                success=True
-            )
+        log_consensus_provider_metrics(consensus_result.provider_metrics)
 
         # Step 3: Format response
         logger.info("[3/3] Formatting response")
@@ -408,6 +426,7 @@ def analyze_consensus_endpoint():
         duration_ms = int((time.time() - start_time) * 1000)
 
         # Log request failure
+        log_consensus_provider_metrics(getattr(e, 'details', {}).get('provider_metrics', {}))
         log_request_to_database(
             url=url,
             mode='consensus',

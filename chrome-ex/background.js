@@ -76,28 +76,25 @@ async function fetchHighlightSentences(url, selectedSettings = null) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal
-    });
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const result = await response.json();
-
-    if (result.success) {
-      log(`Analysis complete: ${result.count} sentences`);
-      return result;
-    } else {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const result = await response.json();
+      if (result.success) {
+        log(`Analysis complete: ${result.count} sentences`);
+        return result;
+      }
       throw new Error(result.error || 'Analysis failed');
+    } finally {
+      clearTimeout(timeoutId);
     }
 
   } catch (error) {
@@ -178,6 +175,11 @@ function isCacheValid(timestamp) {
   return (Date.now() - timestamp) < CONFIG.CACHE_DURATION;
 }
 
+function isCacheableResult(data) {
+  return data?.success === true &&
+    (!data.failed_providers || data.failed_providers.length === 0);
+}
+
 /**
  * Get cached result for URL with current settings
  * @param {string} url - Article URL
@@ -192,13 +194,13 @@ async function getCachedResult(url, settings) {
     if (result[cacheKey]) {
       const cached = result[cacheKey];
 
-      if (isCacheValid(cached.timestamp)) {
+      if (isCacheValid(cached.timestamp) && isCacheableResult(cached.data)) {
         log(`Cache hit: ${url}`);
         return cached.data;
       } else {
         // Remove expired cache
         await chrome.storage.local.remove(cacheKey);
-        log(`Cache expired: ${url}`, 'warn');
+        log(`Cache entry discarded: ${url}`, 'warn');
       }
     }
 
@@ -217,6 +219,7 @@ async function getCachedResult(url, settings) {
  * @param {Object} settings - Current settings
  */
 async function setCachedResult(url, data, settings) {
+  if (!isCacheableResult(data)) return;
   try {
     const cacheKey = getCacheKey(url, settings);
     const cacheEntry = {
@@ -277,8 +280,8 @@ async function handleGetHighlightSentences(url, sendResponse) {
     // Step 2: Fetch from server (will use consensus mode if enabled)
     const result = await fetchHighlightSentences(url, settings);
 
-    // Step 3: Save to cache if successful
-    if (result.success && settings.configurationId) {
+    // Partial consensus must be retried, including after a provider recovers.
+    if (isCacheableResult(result) && settings.configurationId) {
       await setCachedResult(url, result, settings);
     }
 

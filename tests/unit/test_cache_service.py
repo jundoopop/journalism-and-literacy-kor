@@ -15,24 +15,32 @@ class TestCacheService:
         service = CacheService()
         assert service is not None
 
-    def test_is_enabled_when_redis_unavailable(self):
-        """Test is_enabled returns False when Redis is not available."""
+    @patch('redis.Redis')
+    def test_is_enabled_when_redis_unavailable(self, mock_redis_class, monkeypatch):
+        """An explicit connection failure disables caching."""
+        from config import settings
+        monkeypatch.setattr(settings.cache, 'enabled', True)
+        mock_redis_class.return_value.ping.side_effect = ConnectionError('fixture outage')
         service = CacheService()
-        # By default, if Redis is not running, should be disabled
-        assert isinstance(service.is_enabled(), bool)
+        assert service.is_enabled() is False
+        assert service._redis_client is None
+        mock_redis_class.return_value.ping.assert_called_once()
 
     @patch('redis.Redis')
-    def test_service_with_mock_redis(self, mock_redis_class):
+    def test_service_with_mock_redis(self, mock_redis_class, monkeypatch):
         """Test service functionality with mocked Redis."""
         # Setup mock
         mock_client = Mock()
         mock_client.ping.return_value = True
         mock_redis_class.return_value = mock_client
+        from config import settings
+        monkeypatch.setattr(settings.cache, 'enabled', True)
 
         service = CacheService()
 
-        # If Redis is mocked to be available, service should enable
-        # This depends on implementation details
+        assert service.is_enabled() is True
+        assert service._redis_client is mock_client
+        mock_client.ping.assert_called_once()
 
     def test_health_check_structure(self):
         """Test health check returns proper structure."""

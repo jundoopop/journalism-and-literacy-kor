@@ -111,7 +111,23 @@ def sample_config():
 
 
 @pytest.fixture(autouse=True)
-def reset_services(tmp_path, monkeypatch):
+def no_external_io(monkeypatch):
+    """Tests must explicitly fake network and credential-store boundaries."""
+    import socket
+    import keyring
+
+    def unexpected_network(*args, **kwargs):
+        pytest.fail("Unexpected network access; supply an explicit fake in this test")
+
+    monkeypatch.setattr(socket.socket, 'connect', unexpected_network)
+    monkeypatch.setattr(socket, 'getaddrinfo', unexpected_network)
+    monkeypatch.setattr(keyring, 'get_password', lambda *args, **kwargs: None)
+    # Provider fallback must not load credentials from a developer's .env file.
+    monkeypatch.setattr('dotenv.load_dotenv', lambda *args, **kwargs: False)
+
+
+@pytest.fixture(autouse=True)
+def reset_services(tmp_path, monkeypatch, no_external_io):
     """Each test gets its own database, configuration and metrics state."""
     import importlib
     from config import settings
@@ -129,6 +145,9 @@ def reset_services(tmp_path, monkeypatch):
     metrics.reset()
     metrics.enable()
     set_correlation_id(None)
+    server = sys.modules.get('server')
+    if server is not None:
+        server.health_service.clear_cache()
     yield
     if db._engine is not None:
         db._engine.dispose()
@@ -138,13 +157,64 @@ def reset_services(tmp_path, monkeypatch):
 
 @pytest.fixture
 def mock_redis_client():
-    """Mock Redis client for testing without Redis server."""
+    """In-memory Redis operations; expiration is tested separately in the browser."""
     from unittest.mock import Mock
+    from fnmatch import fnmatch
 
-    redis_mock = Mock()
+    redis_mock = Mock(spec=['ping', 'get', 'setex', 'delete', 'keys', 'flushdb', 'info'])
     redis_mock.ping.return_value = True
-    redis_mock.get.return_value = None
-    redis_mock.setex.return_value = True
-    redis_mock.delete.return_value = 1
+    stored = {}
+    redis_mock.get.side_effect = stored.get
+
+    def setex(key, ttl, value):
+        stored[key] = value
+        return True
+
+    def delete(*keys):
+        count = sum(key in stored for key in set(keys))
+        for key in keys:
+            stored.pop(key, None)
+        return count
+
+    redis_mock.setex.side_effect = setex
+    redis_mock.delete.side_effect = delete
+    redis_mock.keys.side_effect = lambda pattern: [key for key in stored if fnmatch(key, pattern)]
+    redis_mock.flushdb.side_effect = stored.clear
+    redis_mock.info.return_value = {'redis_version': 'fixture'}
 
     return redis_mock
+
+
+@pytest.fixture
+def measured_providers(monkeypatch):
+    from threading import local
+    from types import SimpleNamespace
+    from llm.base import AnalysisResult
+    import consensus_analyzer
+    from llm.factory import LLMFactory
+
+    clock = local()
+    monkeypatch.setattr(
+        consensus_analyzer, "perf_counter", lambda: getattr(clock, "now", 0)
+    )
+
+    def install(failures=()):
+        calls = []
+
+        def create(provider):
+            def analyze(article, prompt):
+                calls.append(provider)
+                clock.now = getattr(clock, "now", 0) + {"gemini": 0.125, "mistral": 0.875}[provider]
+                if provider in failures:
+                    raise TimeoutError("fixture timeout")
+                sentences = {"첫 문장.": "첫 이유"}
+                if provider == "mistral":
+                    sentences["둘째 문장."] = "둘째 이유"
+                return AnalysisResult(sentences, provider, f"fixture-{provider}")
+
+            return SimpleNamespace(analyze_article=analyze)
+
+        monkeypatch.setattr(LLMFactory, "create", create)
+        return calls
+
+    return install

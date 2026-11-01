@@ -25,6 +25,7 @@ const state = {
   isConsensusMode: false,     // Whether using consensus data
   isActivated: false,
   isLoading: false,
+  highlightCount: 0,
   highlightedNodes: []
 };
 
@@ -252,49 +253,40 @@ function normalizeText(text) {
 // ============================================
 
 /**
- * Check if node should be excluded from highlighting
- * @param {Node} node - Text node to check
- * @returns {boolean} True if node should be excluded
- */
-function shouldExcludeNode(node) {
-  if (!node.textContent.trim()) {
-    return true;
-  }
-
-  const parent = node.parentElement;
-  if (!parent) {
-    return true;
-  }
-
-  const tagName = parent.tagName.toLowerCase();
-  return CONFIG.EXCLUDED_TAGS.includes(tagName);
-}
-
-/**
- * Collect all text nodes in the document
+ * Collect text runs across inline markup, keeping block and excluded boundaries.
  * @param {Element} root - Root element to search from
- * @returns {Array<Node>} Array of text nodes
+ * @returns {Array<Array<Node>>} Runs of original text nodes
  */
-function collectTextNodes(root) {
-  const textNodes = [];
-  const walker = document.createTreeWalker(
-    root,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode(node) {
-        return shouldExcludeNode(node)
-          ? NodeFilter.FILTER_REJECT
-          : NodeFilter.FILTER_ACCEPT;
-      }
-    }
-  );
-
-  let node;
-  while (node = walker.nextNode()) {
-    textNodes.push(node);
+function collectTextRuns(root) {
+  const blocks = new Set(['address', 'article', 'aside', 'blockquote', 'body', 'div',
+    'dl', 'dt', 'dd', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3',
+    'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'pre',
+    'section', 'table', 'td', 'th', 'tr', 'ul']);
+  const runs = [];
+  let current = [];
+  function flush() {
+    if (current.length) runs.push(current);
+    current = [];
   }
-
-  return textNodes;
+  function visit(node) {
+    if (node.nodeType === 3) {
+      if (node.textContent) current.push(node);
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    const tag = node.tagName.toLowerCase();
+    if (CONFIG.EXCLUDED_TAGS.includes(tag) || node.id === 'highlighter-custom-tooltip') {
+      flush();
+      return;
+    }
+    const boundary = blocks.has(tag) || tag === 'br';
+    if (boundary) flush();
+    for (const child of node.childNodes) visit(child);
+    if (boundary) flush();
+  }
+  visit(root);
+  flush();
+  return runs;
 }
 
 // ============================================
@@ -305,10 +297,26 @@ function collectTextNodes(root) {
  * Find matching targets in text
  * Supports both legacy (string array) and consensus (object array) modes
  * @param {string} text - Text to search in
- * @param {string} normalizedText - Normalized version of text
  * @returns {Array} Array of matches with metadata
  */
-function findMatches(text, normalizedText) {
+function findMatches(text) {
+  // Keep UTF-16 offsets into the original DOM text while collapsing whitespace.
+  const parts = [], starts = [], ends = [];
+  let lastEnd = 0;
+  for (const word of text.matchAll(/\S+/g)) {
+    if (parts.length) {
+      parts.push(' ');
+      starts.push(lastEnd);
+      ends.push(word.index);
+    }
+    parts.push(word[0]);
+    for (let i = 0; i < word[0].length; i++) {
+      starts.push(word.index + i);
+      ends.push(word.index + i + 1);
+    }
+    lastEnd = word.index + word[0].length;
+  }
+  const normalizedText = parts.join('');
   const matchingTargets = [];
 
   for (const target of state.highlightTargets) {
@@ -340,34 +348,30 @@ function findMatches(text, normalizedText) {
       }
     }
 
+    if (typeof sentenceText !== 'string') continue;
     const normalizedTarget = normalizeText(sentenceText);
-    const index = normalizedText.indexOf(normalizedTarget);
-
-    if (index !== -1) {
+    if (!normalizedTarget) continue;
+    let from = 0;
+    let index;
+    while ((index = normalizedText.indexOf(normalizedTarget, from)) !== -1) {
+      const startIndex = starts[index];
+      const endIndex = ends[index + normalizedTarget.length - 1];
       matchingTargets.push({
-        target: sentenceText,
-        normalizedTarget,
-        startIndex: index,
-        endIndex: index + normalizedTarget.length,
+        text: text.slice(startIndex, endIndex),
+        startIndex,
+        endIndex,
         metadata
       });
+      from = index + normalizedTarget.length;
     }
   }
 
-  // Sort by start index
-  matchingTargets.sort((a, b) => a.startIndex - b.startIndex);
-
-  // Find actual positions in original text
+  // Prefer the longest target at a shared start, and never duplicate overlapping text.
+  matchingTargets.sort((a, b) => a.startIndex - b.startIndex || b.endIndex - a.endIndex);
   const matches = [];
   for (const match of matchingTargets) {
-    const actualIndex = text.indexOf(match.target);
-    if (actualIndex !== -1) {
-      matches.push({
-        text: match.target,
-        startIndex: actualIndex,
-        endIndex: actualIndex + match.target.length,
-        metadata: match.metadata
-      });
+    if (!matches.length || match.startIndex >= matches[matches.length - 1].endIndex) {
+      matches.push(match);
     }
   }
 
@@ -476,18 +480,30 @@ function applyHighlightsToNode(textNode, matches) {
 }
 
 /**
- * Highlight text node if it contains target sentences
- * @param {Node} textNode - Text node to process
+ * Map sentence matches to node-local ranges without changing original markup.
+ * @param {Array<Node>} nodes - Adjacent text nodes in one inline run
  */
-function highlightTextNode(textNode) {
-  const text = textNode.textContent;
-  const normalizedText = normalizeText(text);
+function planNodeHighlights(nodes, matches = findMatches(nodes.map(node => node.textContent).join(''))) {
+  let offset = 0;
+  return nodes.map(node => {
+    const nodeStart = offset;
+    offset += node.textContent.length;
+    return matches.filter(match => match.startIndex < offset && match.endIndex > nodeStart)
+      .map(match => {
+        const startIndex = Math.max(match.startIndex, nodeStart) - nodeStart;
+        const endIndex = Math.min(match.endIndex, offset) - nodeStart;
+        return {startIndex, endIndex, text: node.textContent.slice(startIndex, endIndex), metadata: match.metadata};
+      });
+  });
+}
 
-  const matches = findMatches(text, normalizedText);
-
-  if (matches.length > 0) {
-    applyHighlightsToNode(textNode, matches);
-  }
+function highlightTextRun(nodes) {
+  const matches = findMatches(nodes.map(node => node.textContent).join(''));
+  const plan = planNodeHighlights(nodes, matches);
+  nodes.forEach((node, index) => {
+    if (plan[index].length) applyHighlightsToNode(node, plan[index]);
+  });
+  return matches.length;
 }
 
 // ============================================
@@ -512,15 +528,15 @@ function executeHighlighting() {
   const startTime = performance.now();
 
   // Collect text nodes
-  const textNodes = collectTextNodes(document.body);
-  log(`Found ${textNodes.length} text nodes`);
+  const runs = collectTextRuns(document.body);
+  log(`Found ${runs.length} text runs`);
 
   // Apply highlights
-  textNodes.forEach(node => highlightTextNode(node));
+  state.highlightCount = runs.reduce((count, nodes) => count + highlightTextRun(nodes), 0);
 
   const duration = (performance.now() - startTime).toFixed(2);
   log(`Highlighting complete! (${duration}ms)`);
-  log(`Highlighted ${state.highlightedNodes.length} sentences`);
+  log(`Highlighted ${state.highlightCount} sentences`);
 
   state.isActivated = true;
 }
@@ -540,6 +556,7 @@ function removeAllHighlights() {
   });
 
   state.highlightedNodes = [];
+  state.highlightCount = 0;
   state.isActivated = false;
 
   // Destroy custom tooltip
@@ -625,7 +642,7 @@ async function handleActivate(sendResponse) {
 
   sendResponse({
     success: true,
-    count: state.highlightedNodes.length
+    count: state.highlightCount
   });
 }
 
@@ -649,7 +666,7 @@ async function handleReload(sendResponse) {
 
   sendResponse({
     success: true,
-    count: state.highlightedNodes.length
+    count: state.highlightCount
   });
 }
 
